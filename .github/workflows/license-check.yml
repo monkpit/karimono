@@ -1,0 +1,51 @@
+name: License Check
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'LICENSES.md'
+
+jobs:
+  license-check:
+    name: License File Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: Generate license report
+        run: npm run generate-license-report
+
+      - name: Check if LICENSES.md is up to date
+        run: |
+          if ! git diff --quiet LICENSES.md; then
+            echo "❌ LICENSES.md is out of date!"
+            echo "Please run 'npm run generate-license-report' and commit the changes."
+            git diff LICENSES.md
+            exit 1
+          else
+            echo "✅ LICENSES.md is up to date"
+          fi
