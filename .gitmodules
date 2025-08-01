@@ -1,0 +1,6 @@
+[submodule "tests/resources/blargg"]
+	path = tests/resources/blargg
+	url = https://github.com/retrio/gb-test-roms
+[submodule "tests/resources/mealybug"]
+	path = tests/resources/mealybug
+	url = https://github.com/mattcurrie/mealybug-tearoom-tests
