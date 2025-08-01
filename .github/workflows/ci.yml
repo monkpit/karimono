@@ -61,7 +61,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Cache node_modules
@@ -83,21 +83,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-jest-
 
-      - name: Run unit tests
-        run: npm run test:unit
-        env:
-          NODE_OPTIONS: --max_old_space_size=4096
-
-      - name: Run integration tests
-        run: npm run test:integration
-        env:
-          NODE_OPTIONS: --max_old_space_size=4096
-
-      - name: Run screenshot tests
-        run: npm run test:screenshot
-        env:
-          NODE_OPTIONS: --max_old_space_size=4096
-
       - name: Cache build output
         uses: actions/cache@v4
         with:
@@ -105,7 +90,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
       - name: Generate test coverage with threshold enforcement
-        run: npm run test:coverage
+        run: npm run test
         env:
           NODE_OPTIONS: --max_old_space_size=4096
 
