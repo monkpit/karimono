@@ -5,14 +5,18 @@ This directory contains comprehensive research and analysis of Game Boy DMG emul
 ## Document Overview
 
 ### 📋 [Architectural Analysis](./architectural-analysis.md)
+
 Comprehensive overview of common architectural patterns found across successful Game Boy emulators, including:
+
 - Component structure and interfaces
 - Performance considerations for 4MHz DMG timing
 - Memory access optimization strategies
 - Component isolation and testing approaches
 
-### 🔬 [JSMoo Analysis](./jsmoo-analysis.md) 
+### 🔬 [JSMoo Analysis](./jsmoo-analysis.md)
+
 Detailed analysis of the JSMoo Game Boy emulator implementation, focusing on:
+
 - TypeScript/AssemblyScript architecture patterns
 - Component-based design with dependency injection
 - WebAssembly compilation for performance
@@ -20,7 +24,9 @@ Detailed analysis of the JSMoo Game Boy emulator implementation, focusing on:
 - Comprehensive testing strategies
 
 ### 🌐 [GameBoy Online Analysis](./gameboy-online-analysis.md)
+
 In-depth examination of the GameBoy Online JavaScript emulator, covering:
+
 - JavaScript performance optimization techniques
 - Browser-compatible implementation strategies
 - Direct memory access patterns
@@ -28,7 +34,9 @@ In-depth examination of the GameBoy Online JavaScript emulator, covering:
 - Canvas rendering optimization
 
 ### 📚 [Technical Specifications](./technical-specifications.md)
+
 Complete hardware specifications derived from Pan Docs and GB Dev Wiki:
+
 - CPU (SM83) register and instruction set details
 - Memory mapping and banking mechanisms
 - PPU timing and rendering specifications
@@ -37,7 +45,9 @@ Complete hardware specifications derived from Pan Docs and GB Dev Wiki:
 - Cartridge format and MBC implementations
 
 ### ⚖️ [Implementation Comparison](./implementation-comparison.md)
+
 Comparative analysis and specific recommendations for our emulator:
+
 - Side-by-side comparison of architectural approaches
 - Performance analysis of different techniques
 - Recommended hybrid architecture combining best practices
@@ -75,18 +85,21 @@ Comparative analysis and specific recommendations for our emulator:
 Based on our research, we recommend a **hybrid approach** that combines:
 
 ### From JSMoo
+
 - Component-based architecture with clear interfaces
 - TypeScript for type safety and maintainability
 - Dependency injection for testability
 - Comprehensive test coverage
 
-### From GameBoy Online  
+### From GameBoy Online
+
 - JavaScript performance optimization techniques
 - Direct memory access in critical paths
 - Efficient browser compatibility
 - Minimal runtime overhead
 
 ### Our Enhancements
+
 - Object pooling for memory management
 - Generated instruction dispatch tables
 - Progressive WebAssembly compilation
@@ -95,13 +108,15 @@ Based on our research, we recommend a **hybrid approach** that combines:
 ## Implementation Guidelines
 
 ### Component Design Principles
+
 1. **Single Responsibility**: Each component has one clear purpose
-2. **Interface Segregation**: Minimal, focused component interfaces  
+2. **Interface Segregation**: Minimal, focused component interfaces
 3. **Dependency Inversion**: Components depend on abstractions
 4. **Composition Over Inheritance**: Build complexity through composition
 5. **Testability**: All components easily mockable and testable
 
 ### Performance Requirements
+
 - Maintain native 4.194304 MHz CPU performance
 - Achieve stable 59.7 FPS frame rate
 - Provide consistent 44.1 kHz audio output
@@ -109,6 +124,7 @@ Based on our research, we recommend a **hybrid approach** that combines:
 - Support real-time debugging without performance impact
 
 ### Accuracy Standards
+
 - Pass all Blargg CPU test ROMs
 - Pass Mealybug PPU accuracy tests
 - Match real hardware timing precisely

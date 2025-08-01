@@ -17,24 +17,28 @@ Based on analysis of JSMoo, GameBoy Online, and official documentation, successf
 ### Core Components
 
 #### CPU (SM83)
+
 - **State Management**: Organized register structure with 16-bit pairs (AF, BC, DE, HL) and special registers (SP, PC)
 - **Flag Handling**: Dedicated flags register with Z, N, H, C flags for conditional operations
 - **Instruction Execution**: Multi-cycle processing with precise timing control
 - **Memory Interface**: Bus-connected with explicit read/write control signals
 
 #### PPU (Picture Processing Unit)
+
 - **State Machine**: Four distinct modes (HBLANK, VBLANK, OAM Search, Pixel Transfer)
 - **Rendering Pipeline**: Slice-based pixel fetching with priority resolution
 - **Memory Access**: Direct VRAM/OAM access with CPU synchronization
 - **Timing**: 456-cycle scanline duration with precise mode transitions
 
 #### Memory Management Unit (MMU)
+
 - **Address Space**: 64KB addressable memory with banking support
 - **ROM Banking**: MBC (Memory Bank Controller) implementations for cartridge support
 - **Memory Regions**: Fixed and switchable regions with access restrictions
 - **Bank Switching**: Dynamic ROM/RAM bank switching through register writes
 
 #### Audio Processing Unit (APU)
+
 - **Channel Management**: Four independent audio channels
 - **Register Interface**: Memory-mapped audio control registers
 - **Timing Synchronization**: Coordinated with system clock for accurate audio
@@ -42,6 +46,7 @@ Based on analysis of JSMoo, GameBoy Online, and official documentation, successf
 ### Interface Boundaries
 
 #### Bus Architecture
+
 ```typescript
 interface MemoryBus {
   read(address: u16): u8;
@@ -51,6 +56,7 @@ interface MemoryBus {
 ```
 
 #### Component Communication
+
 - **Clock Coordination**: Central timing unit manages all component cycles
 - **Interrupt System**: Structured interrupt request and handling
 - **State Synchronization**: Components maintain synchronized state through bus
@@ -58,6 +64,7 @@ interface MemoryBus {
 ## Performance Considerations for 4MHz DMG Timing
 
 ### Critical Timing Requirements
+
 - **CPU**: 4.194304 MHz (4,194,304 cycles per second)
 - **PPU**: 456 cycles per scanline, 154 scanlines per frame
 - **Frame Rate**: ~59.7 FPS (70,224 cycles per frame)
@@ -65,18 +72,21 @@ interface MemoryBus {
 ### Optimization Strategies
 
 #### Memory Access Optimization
+
 1. **Direct Buffer Access**: Use typed arrays for memory regions
 2. **Lookup Tables**: Pre-computed instruction decode tables
 3. **Minimal Function Calls**: Direct memory access where possible
 4. **Efficient Banking**: Fast bank switching without memory copies
 
 #### Instruction Execution
+
 1. **Generated Opcodes**: Pre-computed instruction implementations
 2. **Switch-based Dispatch**: Efficient opcode routing
 3. **Cycle Tracking**: Precise per-instruction timing
 4. **Interrupt Handling**: Minimal overhead interrupt processing
 
 #### Rendering Optimization
+
 1. **Scanline Rendering**: Process one line at a time
 2. **Pixel Buffers**: Efficient pixel FIFO implementation
 3. **Priority Resolution**: Fast sprite/background mixing
@@ -85,12 +95,14 @@ interface MemoryBus {
 ## Component Isolation Strategies
 
 ### Testing Approaches
+
 1. **Unit Testing**: Individual component testing with mocked interfaces
 2. **Integration Testing**: Component interaction validation
 3. **Reference Testing**: Comparison with known-good implementations
 4. **Hardware Testing**: Real hardware behavior validation
 
 ### Modular Design Benefits
+
 1. **Testability**: Components can be tested in isolation
 2. **Maintainability**: Clear boundaries between system parts
 3. **Performance**: Optimized implementations per component
@@ -99,6 +111,7 @@ interface MemoryBus {
 ## ROM Loading Mechanisms
 
 ### Cartridge Detection
+
 ```typescript
 interface CartridgeHeader {
   title: string;
@@ -110,12 +123,14 @@ interface CartridgeHeader {
 ```
 
 ### Memory Bank Controllers
+
 1. **MBC1**: Basic ROM banking (up to 2MB ROM, 32KB RAM)
 2. **MBC2**: ROM banking with built-in RAM (256x4-bit)
 3. **MBC3**: Advanced banking with RTC support
 4. **MBC5**: Large ROM support (up to 8MB ROM, 128KB RAM)
 
 ### Loading Process
+
 1. **Header Parsing**: Extract cartridge information
 2. **MBC Detection**: Determine banking scheme
 3. **Memory Mapping**: Configure address space
@@ -124,6 +139,7 @@ interface CartridgeHeader {
 ## Implementation Recommendations
 
 ### Architecture Decisions
+
 1. **Use component-based design** with clear interfaces
 2. **Implement cycle-accurate timing** from the start
 3. **Create comprehensive test suite** for validation
@@ -131,6 +147,7 @@ interface CartridgeHeader {
 5. **Support multiple MBC types** for compatibility
 
 ### Performance Guidelines
+
 1. **Minimize dynamic allocation** during emulation
 2. **Use lookup tables** for complex operations
 3. **Implement efficient interrupt handling**
@@ -138,6 +155,7 @@ interface CartridgeHeader {
 5. **Profile and benchmark** critical paths
 
 ### Testing Strategy
+
 1. **Unit tests** for each component
 2. **Blargg test ROM** validation
 3. **Mealybug test** for PPU accuracy

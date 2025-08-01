@@ -3,9 +3,10 @@
 ## Agent Collaboration Process
 
 ### Code Change Lifecycle
+
 1. **Engineer Phase**
    - Write failing test first (RED)
-   - Implement minimal code to pass test (GREEN) 
+   - Implement minimal code to pass test (GREEN)
    - Refactor with passing tests (REFACTOR)
    - Run local validation pipeline
 
@@ -20,15 +21,18 @@
    - Only then commit and push
 
 ### Local Validation Pipeline
+
 Must mirror GitHub Actions exactly:
+
 ```bash
 npm run lint        # ESLint strict compliance
-npm run typecheck   # TypeScript strict mode compilation  
+npm run typecheck   # TypeScript strict mode compilation
 npm test            # Jest test suite
 npm run build       # Vite production build
 ```
 
 ### Pre-commit Enforcement
+
 - Husky runs validation pipeline on commit
 - lint-staged processes only changed files
 - No commits allowed with failing validation
@@ -37,12 +41,14 @@ npm run build       # Vite production build
 ## Test Quality Standards
 
 ### What Makes a Good Test
+
 - **Atomic**: Tests one specific behavior
 - **Fast**: Runs quickly, no unnecessary setup
 - **Debuggable**: Clear failure messages, focused scope
 - **Boundary-focused**: Tests contracts/interfaces, not implementation
 
 ### Test Anti-patterns (FORBIDDEN)
+
 - Testing implementation details
 - Faking data to make tests pass
 - Disabling tests to resolve failures
@@ -50,6 +56,7 @@ npm run build       # Vite production build
 - Console.log debugging instead of focused test design
 
 ### Screenshot Testing Process
+
 1. Implement emulator feature
 2. Create test that calls `ppu.screenshot()` or `display.screenshot()`
 3. Human reviews and approves initial screenshot

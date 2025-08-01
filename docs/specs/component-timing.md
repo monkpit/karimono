@@ -7,6 +7,7 @@ The Game Boy DMG operates as a precisely timed system where all components must 
 ## Master Clock and System Timing
 
 ### Clock Specifications
+
 ```
 Master Clock Frequency: 4.194304 MHz (4,194,304 Hz)
 Mathematical Basis: 2^22 Hz (exact power of 2)
@@ -17,9 +18,10 @@ Frame Rate: 59.727500569606 Hz (~59.7 FPS)
 ```
 
 ### Timing Hierarchy
+
 ```
 1 T-state = 1 clock cycle (base timing unit)
-1 M-cycle = 4 T-states (CPU instruction granularity)  
+1 M-cycle = 4 T-states (CPU instruction granularity)
 1 Scanline = 456 T-states (PPU horizontal timing)
 1 Frame = 70,224 T-states (complete video frame)
 1 Second = 4,194,304 T-states (master clock frequency)
@@ -28,6 +30,7 @@ Frame Rate: 59.727500569606 Hz (~59.7 FPS)
 ## Component Clock Distribution
 
 ### CPU Clock Timing
+
 ```
 Clock Source: Direct from master clock
 Timing Granularity: 4 T-states (1 M-cycle)
@@ -36,12 +39,13 @@ Interrupt Latency: 5 M-cycles (20 T-states)
 
 CPU Clock Relationships:
 - Fetch cycle: 4 T-states
-- Memory access: 4 T-states  
+- Memory access: 4 T-states
 - ALU operation: 4 T-states
 - Branch taken: +4 T-states additional
 ```
 
 ### PPU Clock Timing
+
 ```
 Clock Source: Direct from master clock
 Timing Granularity: 1 T-state (pixel-level precision)
@@ -56,17 +60,19 @@ PPU Mode Timing:
 ```
 
 ### Timer System Clock Timing
+
 ```
 Clock Source: Master clock with dividers
 DIV Register: Increments every 256 T-states (16.384 kHz)
 TIMA Frequencies:
   - TAC=00: 4,096 Hz (every 1,024 T-states)
-  - TAC=01: 262,144 Hz (every 16 T-states)  
+  - TAC=01: 262,144 Hz (every 16 T-states)
   - TAC=10: 65,536 Hz (every 64 T-states)
   - TAC=11: 16,384 Hz (every 256 T-states)
 ```
 
 ### APU Clock Timing
+
 ```
 Clock Source: Master clock with complex dividers
 Frame Sequencer: 512 Hz (every 8,192 T-states)
@@ -77,6 +83,7 @@ Wave RAM: Accessible every 2 T-states when channel 3 enabled
 ## Inter-Component Synchronization
 
 ### CPU-PPU Coordination
+
 ```
 Critical Synchronization Points:
 1. VRAM/OAM Access Restrictions
@@ -96,6 +103,7 @@ Critical Synchronization Points:
 ```
 
 ### CPU-Timer Coordination
+
 ```
 Timer Integration Points:
 1. DIV Register Behavior
@@ -115,6 +123,7 @@ Timer Integration Points:
 ```
 
 ### Memory Access Arbitration
+
 ```
 Access Priority (highest to lowest):
 1. DMA Transfer (blocks all CPU access except HRAM)
@@ -131,6 +140,7 @@ Access Timing Rules:
 ## Precise Timing Requirements
 
 ### Frame Timing Accuracy
+
 ```
 Complete Frame Duration: 70,224 T-states (exact)
 Scanline Timing: 456 T-states each (exact)
@@ -144,6 +154,7 @@ Frame Boundary Events:
 ```
 
 ### Instruction Execution Timing
+
 ```
 Timing Granularity: M-cycle (4 T-states)
 Instruction Categories:
@@ -161,6 +172,7 @@ Branch Timing:
 ```
 
 ### Memory Access Timing Windows
+
 ```
 VRAM Access Windows:
 - Allowed: Mode 0 (HBLANK) and Mode 1 (VBLANK)
@@ -181,6 +193,7 @@ High RAM (HRAM) Access:
 ## System State Synchronization
 
 ### Component State Updates
+
 ```
 Update Order (per T-state):
 1. Timer system (DIV, TIMA counters)
@@ -197,6 +210,7 @@ State Consistency Rules:
 ```
 
 ### Interrupt Timing Coordination
+
 ```
 Interrupt Processing Pipeline:
 1. Interrupt condition detected (various components)
@@ -215,6 +229,7 @@ Interrupt Priority Resolution:
 ## Performance Requirements
 
 ### Real-Time Execution Constraints
+
 ```
 Timing Accuracy Requirements:
 - Frame timing: ±0.1% accuracy for game compatibility
@@ -230,6 +245,7 @@ Performance Targets:
 ```
 
 ### Component Processing Efficiency
+
 ```
 CPU Processing:
 - Execute 1,048,576 M-cycles per second
@@ -253,70 +269,90 @@ Memory System:
 ## Test Case Specifications
 
 ### 1. Frame Timing Accuracy
+
 **Test**: "Complete frame executes in exactly 70,224 T-states"
+
 - Initial state: System at frame boundary, cycle counter at 0
 - Execute: Run complete frame with no instructions (HALT mode)
 - Expected result: Cycle counter = 70,224 at next frame boundary
 - Validation: Blargg timing tests verify exact frame duration
 
 ### 2. PPU Mode Transition Timing
+
 **Test**: "PPU mode transitions occur at exact T-state boundaries"
+
 - Initial state: PPU entering Mode 2, precise T-state tracking
 - Monitor: Mode register changes during scanline
 - Expected result: Mode 2→3 at T-state 80, Mode 3→0 at variable but exact T-state
-- Validation: Mealybug tests require T-state accurate mode transitions 
+- Validation: Mealybug tests require T-state accurate mode transitions
 
 ### 3. Timer Interrupt Precision
+
 **Test**: "Timer interrupt triggered at exact TIMA overflow"
+
 - Initial state: TIMA = 0xFE, TAC = 0x04 (16.384 kHz), interrupt enabled
 - Execute: Run exactly 512 T-states (2 TIMA increments)
 - Expected result: TIMA = 0x00, TMA loaded, interrupt pending
 - Validation: Blargg timer tests validate exact overflow timing
 
 ### 4. CPU-PPU Memory Access Coordination
+
 **Test**: "CPU VRAM access blocked during exact PPU Mode 3 duration"
+
 - Initial state: PPU entering Mode 3, CPU ready to read VRAM
 - Execute: CPU VRAM read attempt during pixel transfer
 - Expected result: Read returns 0xFF, access blocked for exact Mode 3 duration
 - Validation: Critical for games that rely on PPU blocking behavior
 
 ### 5. DMA Transfer Timing
+
 **Test**: "DMA transfer completes in exactly 160 M-cycles"
+
 - Initial state: DMA register write triggers transfer, cycle counter at 0
 - Execute: DMA transfer from 0xC000 to OAM
 - Expected result: Transfer complete at cycle 640, CPU accessible again
 - Validation: DMA timing affects sprite initialization in many games
 
 ### 6. Instruction Execution Timing
+
 **Test**: "CPU instructions consume exact documented cycle counts"
+
 - Initial state: Known CPU state, cycle counter at 0
 - Execute: Sequence of instructions with known timings
 - Expected result: Cycle counter matches sum of instruction timings exactly
 - Validation: Blargg cpu_instrs and instr_timing tests validate this
 
 ### 7. Multi-Component Synchronization
+
 **Test**: "VBlank interrupt occurs at exact frame boundary with PPU Mode 1"
+
 - Initial state: End of scanline 143, interrupt enabled
 - Execute: Transition to scanline 144
 - Expected result: VBlank interrupt at T-state 0, PPU Mode = 1 simultaneously
 - Validation: Frame-based games depend on exact VBlank timing
 
 ### 8. Audio Frame Sequencer Timing
+
 **Test**: "APU frame sequencer updates at 512 Hz exactly"
+
 - Initial state: Frame sequencer at step 0, cycle counter at 0
 - Execute: Run for 8,192 T-states (one frame sequencer step)
 - Expected result: Frame sequencer advances to step 1 at exact T-state
 - Validation: Audio envelope/sweep timing depends on frame sequencer
 
 ### 9. Timer DIV Register Behavior
+
 **Test**: "DIV register increments every 256 T-states regardless of TAC"
+
 - Initial state: DIV = 0x00, cycle counter at 0, TAC = 0x00 (timer disabled)
 - Execute: Run for 768 T-states (3 DIV increments)
 - Expected result: DIV = 0x03, unaffected by TAC setting
 - Validation: DIV runs independently of TIMA timer
 
 ### 10. Scanline LY Register Updates
+
 **Test**: "LY register updates at exact scanline boundaries"
+
 - Initial state: LY = 50, at T-state 455 of scanline 50
 - Execute: Advance 1 T-state to scanline boundary
 - Expected result: LY = 51 at T-state 0 of new scanline
@@ -325,6 +361,7 @@ Memory System:
 ## Implementation Requirements
 
 ### System Clock Architecture
+
 ```
 Master Clock Interface:
 - step(cycles): Advance all components by specified T-states
@@ -334,12 +371,13 @@ Master Clock Interface:
 
 Component Clock Interface:
 - stepCPU(cycles): Advance CPU by M-cycles
-- stepPPU(cycles): Advance PPU by T-states  
+- stepPPU(cycles): Advance PPU by T-states
 - stepTimers(cycles): Advance timer system
 - stepAPU(cycles): Advance audio processing
 ```
 
 ### Timing Accuracy Requirements
+
 ```
 Accuracy Standards:
 - T-state level precision for all timing
@@ -355,6 +393,7 @@ Performance Requirements:
 ```
 
 ### Component Interface Standards
+
 ```
 All components must implement:
 - step(cycles): Execute for specified T-state count
@@ -367,6 +406,7 @@ All components must implement:
 ## References
 
 ### Primary Timing Sources
+
 - **Blargg Test ROMs**: Comprehensive timing validation
   - `instr_timing.gb`: CPU instruction timing accuracy
   - `mem_timing.gb`: Memory access timing validation
@@ -375,11 +415,13 @@ All components must implement:
   - All PPU tests require T-state accurate implementation
 
 ### Documentation Sources
+
 - **Pan Docs**: https://gbdev.io/pandocs/Timing.html
 - **GB Dev Wiki**: https://gbdev.gg8.se/wiki/articles/Timing
 - **Technical References**: tests/resources/reference-implementations/technical-specifications.md
 
 ### Critical Validation Requirements
+
 All timing implementations MUST pass Blargg timing test ROMs and produce frame-perfect output matching Mealybug test expected results. Any timing inaccuracy will cause game compatibility issues and test failures.
 
 This specification ensures that all emulator components maintain the precise timing relationships required for accurate Game Boy DMG emulation.
