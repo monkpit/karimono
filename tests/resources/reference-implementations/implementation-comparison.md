@@ -6,22 +6,23 @@ This document compares the architectural approaches of the analyzed Game Boy emu
 
 ## Implementation Comparison Matrix
 
-| Aspect | JSMoo | GameBoy Online | MCP-GameBoy | Our Recommendations |
-|--------|-------|----------------|-------------|-------------------|
-| **Language** | TypeScript/AssemblyScript | JavaScript | TypeScript | TypeScript with optional WASM |
-| **Architecture** | Component-based with DI | Prototype-based | Wrapper-based | Component-based with composition |
-| **Performance** | WebAssembly compilation | JavaScript optimization | Delegation to libraries | Hybrid approach |
-| **Memory Management** | Typed arrays | Typed arrays | Library abstraction | Typed arrays with pooling |
-| **Instruction Dispatch** | Switch-based | Function arrays | External library | Generated switch tables |
-| **Testing** | Unit/Integration | Minimal | Defensive programming | Comprehensive TDD |
-| **Browser Support** | Modern browsers | Wide compatibility | Node.js focused | Progressive enhancement |
-| **Implementation Strategy** | From scratch | From scratch | Library wrapper | Direct implementation |
+| Aspect                      | JSMoo                     | GameBoy Online          | MCP-GameBoy             | Our Recommendations              |
+| --------------------------- | ------------------------- | ----------------------- | ----------------------- | -------------------------------- |
+| **Language**                | TypeScript/AssemblyScript | JavaScript              | TypeScript              | TypeScript with optional WASM    |
+| **Architecture**            | Component-based with DI   | Prototype-based         | Wrapper-based           | Component-based with composition |
+| **Performance**             | WebAssembly compilation   | JavaScript optimization | Delegation to libraries | Hybrid approach                  |
+| **Memory Management**       | Typed arrays              | Typed arrays            | Library abstraction     | Typed arrays with pooling        |
+| **Instruction Dispatch**    | Switch-based              | Function arrays         | External library        | Generated switch tables          |
+| **Testing**                 | Unit/Integration          | Minimal                 | Defensive programming   | Comprehensive TDD                |
+| **Browser Support**         | Modern browsers           | Wide compatibility      | Node.js focused         | Progressive enhancement          |
+| **Implementation Strategy** | From scratch              | From scratch            | Library wrapper         | Direct implementation            |
 
 ## Architectural Analysis
 
 ### Component Structure Comparison
 
 #### JSMoo Approach
+
 ```typescript
 class GameBoySystem {
   constructor(
@@ -34,23 +35,26 @@ class GameBoySystem {
 ```
 
 **Strengths:**
+
 - Clean dependency injection
 - Strong typing with TypeScript
 - Testable component isolation
 - Clear interface boundaries
 
 **Weaknesses:**
+
 - Complex build process
 - Larger codebase
 - Steeper learning curve
 
 #### GameBoy Online Approach
+
 ```javascript
 function GameBoyCore() {
   this.cpu = new CPU();
   this.ppu = new PPU();
   this.memory = new Memory();
-  
+
   // Direct property access
   this.cpu.parent = this;
   this.ppu.parent = this;
@@ -58,28 +62,31 @@ function GameBoyCore() {
 ```
 
 **Strengths:**
+
 - Simple implementation
 - Direct performance optimization
 - Easy to understand and modify
 - Fast development cycle
 
 **Weaknesses:**
+
 - Limited type safety
 - Tight coupling between components
 - Harder to test in isolation
 - Maintenance challenges at scale
 
 #### MCP-GameBoy Approach
+
 ```typescript
 class GameBoyEmulator {
   private emulator: any; // serverboy instance
   private canvas: Canvas;
-  
+
   constructor() {
     this.emulator = new Gameboy();
     this.canvas = createCanvas(160, 144);
   }
-  
+
   loadRom(romData: ArrayBuffer): void {
     this.emulator.loadRom(new Uint8Array(romData));
   }
@@ -88,7 +95,7 @@ class GameBoyEmulator {
 // Service layer wrapper
 class EmulatorService {
   constructor(private emulator: GameBoyEmulator) {}
-  
+
   loadRom(romPath: string): void {
     if (!fs.existsSync(romPath)) {
       throw new Error(`ROM file not found: ${romPath}`);
@@ -99,6 +106,7 @@ class EmulatorService {
 ```
 
 **Strengths:**
+
 - Rapid development through library delegation
 - Type-safe interfaces and comprehensive error handling
 - Clean service layer pattern with dependency injection
@@ -106,6 +114,7 @@ class EmulatorService {
 - Well-organized TypeScript codebase
 
 **Weaknesses:**
+
 - Black box dependencies limit control and learning
 - Multiple abstraction layers add complexity
 - Performance overhead from wrapper patterns
@@ -118,31 +127,37 @@ class EmulatorService {
 #### Instruction Execution Performance
 
 **JSMoo (Switch-based):**
+
 ```typescript
 switch (opcode) {
-    case 0x00: // NOP
-        this.cycles += 4;
-        break;
-    case 0x01: // LD BC,nn
-        this.C = this.read(this.PC++);
-        this.B = this.read(this.PC++);
-        this.cycles += 12;
-        break;
+  case 0x00: // NOP
+    this.cycles += 4;
+    break;
+  case 0x01: // LD BC,nn
+    this.C = this.read(this.PC++);
+    this.B = this.read(this.PC++);
+    this.cycles += 12;
+    break;
 }
 ```
 
 **GameBoy Online (Function Array):**
+
 ```javascript
 this.opcodes = [
-    function() { /* NOP - 4 cycles */ },
-    function() { /* LD BC,nn - 12 cycles */
-        this.registerC = this.memoryRead(this.programCounter++);
-        this.registerB = this.memoryRead(this.programCounter++);
-    }
+  function () {
+    /* NOP - 4 cycles */
+  },
+  function () {
+    /* LD BC,nn - 12 cycles */
+    this.registerC = this.memoryRead(this.programCounter++);
+    this.registerB = this.memoryRead(this.programCounter++);
+  },
 ];
 ```
 
 **Performance Comparison:**
+
 - **Function Arrays**: Faster dispatch, higher memory usage
 - **Switch Statements**: Balanced performance, better optimization by compilers
 - **Generated Code**: Best of both worlds with compile-time optimization
@@ -169,6 +184,7 @@ this.memory[address] = value; // Direct array access
 ### 1. Component Architecture
 
 #### Recommended Structure
+
 ```typescript
 interface GameBoySystem {
   readonly cpu: CPU;
@@ -193,6 +209,7 @@ interface PPU {
 ```
 
 **Benefits:**
+
 - Clear component boundaries
 - Easy to test and mock
 - Flexible implementation swapping
@@ -201,14 +218,15 @@ interface PPU {
 ### 2. Performance Optimization Strategy
 
 #### Memory Management
+
 ```typescript
 class MemoryPool<T> {
   private available: T[] = [];
-  
+
   acquire(): T {
     return this.available.pop() || this.create();
   }
-  
+
   release(item: T): void {
     this.reset(item);
     this.available.push(item);
@@ -221,15 +239,16 @@ const AUDIO_BUFFER = new Float32Array(4096);
 ```
 
 #### Instruction Execution
+
 ```typescript
 // Generated opcode handlers for optimal performance
 class InstructionSet {
   private static readonly HANDLERS = InstructionSet.generateHandlers();
-  
+
   execute(opcode: u8, cpu: CPU): number {
     return InstructionSet.HANDLERS[opcode](cpu);
   }
-  
+
   private static generateHandlers(): Array<(cpu: CPU) => number> {
     // Code generation at build time
   }
@@ -239,17 +258,18 @@ class InstructionSet {
 ### 3. Testing Architecture
 
 #### Component Testing Strategy
+
 ```typescript
 // CPU Tests
 describe('CPU', () => {
   let cpu: CPU;
   let mockMemory: MockMemory;
-  
+
   beforeEach(() => {
     mockMemory = new MockMemory();
     cpu = new CPU(mockMemory);
   });
-  
+
   it('should execute NOP instruction', () => {
     mockMemory.write(0x0000, 0x00); // NOP
     const cycles = cpu.step();
@@ -257,7 +277,7 @@ describe('CPU', () => {
   });
 });
 
-// PPU Tests  
+// PPU Tests
 describe('PPU', () => {
   it('should render scanline correctly', () => {
     const ppu = new PPU(mockVRAM, mockPalette);
@@ -268,18 +288,19 @@ describe('PPU', () => {
 ```
 
 #### Integration Testing
+
 ```typescript
 // System-level tests
 describe('GameBoy System', () => {
   it('should pass Blargg CPU tests', async () => {
     const system = new GameBoySystem();
     await system.loadROM(blarggCPUTest);
-    
+
     // Run until test completion
     while (!system.isTestComplete()) {
       system.step();
     }
-    
+
     expect(system.getTestResult()).toBe('PASSED');
   });
 });
@@ -288,11 +309,12 @@ describe('GameBoy System', () => {
 ### 4. Build and Development Strategy
 
 #### Hybrid Language Approach
+
 ```typescript
 // TypeScript for development
 export class CPU implements CPUInterface {
   private registers: RegisterSet;
-  
+
   execute(): number {
     // Type-safe implementation
   }
@@ -303,6 +325,7 @@ export class CPU implements CPUInterface {
 ```
 
 #### Development Workflow
+
 1. **Development**: TypeScript with full type checking
 2. **Testing**: Comprehensive test suite with mocks
 3. **Performance**: Optional WebAssembly compilation
@@ -311,6 +334,7 @@ export class CPU implements CPUInterface {
 ### 5. Memory Architecture
 
 #### Banking Implementation
+
 ```typescript
 interface MemoryBankController {
   readROM(address: u16): u8;
@@ -324,7 +348,7 @@ class MBC1 implements MemoryBankController {
   private ramBanks: Uint8Array[];
   private currentROMBank = 1;
   private currentRAMBank = 0;
-  
+
   readROM(address: u16): u8 {
     if (address < 0x4000) {
       return this.romBanks[0][address];
@@ -338,6 +362,7 @@ class MBC1 implements MemoryBankController {
 ### 6. PPU Architecture
 
 #### Rendering Pipeline
+
 ```typescript
 interface RenderingPipeline {
   fetchBackgroundTile(): TileData;
@@ -349,15 +374,15 @@ interface RenderingPipeline {
 class PPURenderer implements RenderingPipeline {
   private pixelFIFO: PixelFIFO;
   private spriteBuffer: SpriteBuffer;
-  
+
   renderScanline(line: u8): void {
     this.pixelFIFO.clear();
-    
+
     for (let x = 0; x < 160; x++) {
       const bgPixel = this.fetchBackgroundPixel(x, line);
       const spritePixel = this.fetchSpritePixel(x, line);
       const finalColor = this.mixPixels(bgPixel, spritePixel);
-      
+
       this.setPixel(x, line, finalColor);
     }
   }
@@ -367,24 +392,28 @@ class PPURenderer implements RenderingPipeline {
 ## Implementation Roadmap
 
 ### Phase 1: Core Architecture
+
 1. Define component interfaces
 2. Implement basic CPU with instruction set
 3. Create memory management system
 4. Build testing infrastructure
 
 ### Phase 2: Graphics and Audio
+
 1. Implement PPU with basic rendering
 2. Add sprite and background support
 3. Implement APU with audio channels
 4. Add input handling
 
 ### Phase 3: Compatibility and Performance
+
 1. Implement all MBC types
 2. Add save/load state functionality
 3. Optimize performance bottlenecks
 4. Comprehensive test suite
 
 ### Phase 4: Advanced Features
+
 1. Debugging and profiling tools
 2. Multiple system support (DMG, CGB)
 3. Enhanced audio processing
@@ -393,6 +422,7 @@ class PPURenderer implements RenderingPipeline {
 ## Additional Architectural Insights from MCP-GameBoy
 
 ### Service Layer Pattern
+
 The MCP-GameBoy implementation demonstrates effective use of service layer patterns that we should consider:
 
 ```typescript
@@ -410,7 +440,7 @@ class GameBoyService implements EmulatorService {
     private validator: ROMValidator,
     private logger: Logger
   ) {}
-  
+
   async loadRom(romPath: string): Promise<void> {
     // Comprehensive validation and error handling
     await this.validator.validateROM(romPath);
@@ -422,6 +452,7 @@ class GameBoyService implements EmulatorService {
 ```
 
 ### Defensive Programming Patterns
+
 Key patterns worth adopting:
 
 1. **Comprehensive Error Handling**: Validate all inputs at service boundaries
@@ -430,6 +461,7 @@ Key patterns worth adopting:
 4. **Resource Management**: Proper cleanup and resource lifecycle management
 
 ### Canvas Integration for Testing
+
 The Node.js canvas approach for headless rendering could benefit our testing:
 
 ```typescript
@@ -443,7 +475,7 @@ interface ScreenCapture {
 class TestRenderer implements ScreenCapture {
   private canvas = createCanvas(160, 144);
   private ctx = this.canvas.getContext('2d');
-  
+
   captureFrame(): ImageData {
     return this.ctx.getImageData(0, 0, 160, 144);
   }
@@ -453,27 +485,33 @@ class TestRenderer implements ScreenCapture {
 ## Key Design Decisions
 
 ### 1. Implementation Strategy: Direct vs Wrapper
+
 **Decision**: Direct implementation over library wrapper
 **Rationale**: Educational goals and full control outweigh rapid development benefits
 **Lessons from MCP-GameBoy**: Wrapper approach sacrifices learning opportunities
 
 ### 2. Type Safety vs Performance
+
 **Decision**: Use TypeScript for development with optional runtime optimization
 **Rationale**: Type safety improves maintainability without sacrificing final performance
 
 ### 3. Component Communication
+
 **Decision**: Dependency injection with clear interfaces
 **Rationale**: Enables testing and reduces coupling while maintaining performance
 
 ### 4. Memory Management
+
 **Decision**: Typed arrays with object pooling for hot paths
 **Rationale**: Balances performance with memory efficiency
 
 ### 5. Instruction Execution
+
 **Decision**: Generated switch statements with compile-time optimization
 **Rationale**: Combines flexibility with optimal runtime performance
 
 ### 6. Testing Strategy
+
 **Decision**: Comprehensive test-driven development with hardware validation
 **Rationale**: Ensures accuracy while enabling confident refactoring
 
@@ -482,7 +520,7 @@ class TestRenderer implements ScreenCapture {
 The recommended architecture combines the best aspects of all analyzed implementations:
 
 - **JSMoo's structural advantages**: Component isolation, type safety, testability
-- **GameBoy Online's performance focus**: Direct optimization, minimal overhead  
+- **GameBoy Online's performance focus**: Direct optimization, minimal overhead
 - **MCP-GameBoy's organizational patterns**: Service layer design, defensive programming, comprehensive TypeScript interfaces
 - **Additional improvements**: Object pooling, generated code, comprehensive testing
 
@@ -496,6 +534,7 @@ The recommended architecture combines the best aspects of all analyzed implement
 ### Final Architecture Decision
 
 This hybrid approach provides a solid foundation for building an accurate, performant, and maintainable Game Boy DMG emulator that:
+
 - Achieves native performance through direct implementation
 - Maintains high testability and modularity through component isolation
 - Incorporates robust error handling and validation

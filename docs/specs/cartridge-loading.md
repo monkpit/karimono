@@ -7,11 +7,12 @@ The Game Boy DMG cartridge loading system handles ROM file processing, header va
 ## Cartridge Header Structure
 
 ### Header Location and Format (0x0100-0x014F)
+
 ```
 0100-0103: Entry Point (4 bytes)
   - Typical: 0x00 0xC3 0x50 0x01 (NOP; JP 0150h)
   - Alternative: Direct code execution starting at 0x0100
-  
+
 0104-0133: Nintendo Logo (48 bytes)
   - Fixed compressed bitmap data
   - Must match exact Nintendo logo pattern
@@ -38,7 +39,7 @@ The Game Boy DMG cartridge loading system handles ROM file processing, header va
 0148: ROM Size (1 byte)
   - 0x00: 32KB (2 banks)
   - 0x01: 64KB (4 banks)
-  - 0x02: 128KB (8 banks) 
+  - 0x02: 128KB (8 banks)
   - 0x03: 256KB (16 banks)
   - 0x04: 512KB (32 banks)
   - 0x05: 1MB (64 banks)
@@ -75,6 +76,7 @@ The Game Boy DMG cartridge loading system handles ROM file processing, header va
 ```
 
 ### Cartridge Type Codes (0x0147)
+
 ```
 Common Types:
 0x00: ROM Only (no MBC)
@@ -106,6 +108,7 @@ Common Types:
 ## ROM Loading Process
 
 ### 1. File Validation and Reading
+
 ```
 File Loading Steps:
 1. Verify file exists and is readable
@@ -120,7 +123,8 @@ File Size Validation:
 - Pad smaller files to minimum 32KB if needed
 ```
 
-### 2. Header Parsing and Validation  
+### 2. Header Parsing and Validation
+
 ```
 Header Validation Process:
 1. Extract header from bytes 0x0100-0x014F
@@ -138,6 +142,7 @@ Critical Validations:
 ```
 
 ### 3. MBC Detection and Initialization
+
 ```
 MBC Initialization Process:
 1. Decode cartridge type to MBC variant and features
@@ -154,6 +159,7 @@ Default MBC States:
 ```
 
 ### 4. Memory System Integration
+
 ```
 Memory Integration Steps:
 1. Install ROM data into memory system
@@ -173,6 +179,7 @@ Memory Layout After Loading:
 ## MBC-Specific Loading Requirements
 
 ### MBC1 Cartridge Loading
+
 ```
 ROM Banks: 2-125 (32KB-2MB)
 RAM Banks: 0, 1, or 4 banks (0KB, 8KB, or 32KB)
@@ -190,6 +197,7 @@ Special Handling:
 ```
 
 ### MBC2 Cartridge Loading
+
 ```
 ROM Banks: 2-16 (32KB-256KB)
 Built-in RAM: 256 × 4-bit values (512 bytes total)
@@ -206,8 +214,9 @@ Special Handling:
 ```
 
 ### MBC3 Cartridge Loading
+
 ```
-ROM Banks: 2-128 (32KB-2MB)  
+ROM Banks: 2-128 (32KB-2MB)
 RAM Banks: 0-4 (0KB-32KB)
 RTC Support: Real-time clock registers
 
@@ -224,6 +233,7 @@ Special Handling:
 ```
 
 ### MBC5 Cartridge Loading
+
 ```
 ROM Banks: 2-512 (32KB-8MB)
 RAM Banks: 0-16 (0KB-128KB)
@@ -243,6 +253,7 @@ Special Handling:
 ## Save Data Handling
 
 ### Battery-Backed RAM
+
 ```
 Save File Format:
 - Raw binary dump of all RAM banks
@@ -262,6 +273,7 @@ Save File Naming:
 ```
 
 ### RTC Save Data (MBC3)
+
 ```
 RTC Save Format:
 - Standard RAM data followed by RTC data
@@ -271,7 +283,7 @@ RTC Save Format:
 
 RTC Loading Process:
 1. Load standard RAM data
-2. Load RTC register values  
+2. Load RTC register values
 3. Load last-saved timestamp
 4. Calculate elapsed time since save
 5. Update RTC registers accordingly
@@ -280,6 +292,7 @@ RTC Loading Process:
 ## Error Handling and Validation
 
 ### ROM File Errors
+
 ```
 Invalid File Size:
 - Error: File size not power of 2
@@ -298,6 +311,7 @@ Missing ROM File:
 ```
 
 ### MBC Configuration Errors
+
 ```
 Unknown MBC Type:
 - Error: Cartridge type code not recognized
@@ -318,70 +332,90 @@ Invalid Bank Numbers:
 ## Test Case Specifications
 
 ### 1. Basic ROM Loading
+
 **Test**: "Valid ROM file loads with correct header parsing"
+
 - Input: Valid 32KB ROM file with proper header
 - Execute: Load ROM through cartridge loading system
 - Expected result: ROM data accessible at 0x0000-0x7FFF, header parsed correctly
 - Validation: Title string extracted, MBC type identified, memory accessible
 
 ### 2. MBC1 Bank Switching
+
 **Test**: "MBC1 ROM loads with functional bank switching"
+
 - Input: 128KB MBC1 ROM (8 banks)
 - Execute: Load ROM, switch to bank 2, read from 0x4000
 - Expected result: Bank 2 data visible at 0x4000-0x7FFF
 - Validation: Different data than bank 1, correct bank selection
 
 ### 3. Header Checksum Validation
+
 **Test**: "Header checksum validation works correctly"
+
 - Input: ROM with deliberately incorrect header checksum
 - Execute: Load ROM with checksum validation enabled
 - Expected result: Warning message about checksum, ROM still loads
 - Validation: Error reported but loading continues
 
-### 4. RAM Initialization  
+### 4. RAM Initialization
+
 **Test**: "Cartridge RAM initializes correctly with save data"
+
 - Input: MBC1 ROM with 32KB RAM, existing save file
 - Execute: Load ROM and save file
 - Expected result: RAM contains save file data, accessible at 0xA000-0xBFFF
 - Validation: Save data readable after enabling RAM
 
 ### 5. MBC3 RTC Loading
+
 **Test**: "MBC3 RTC data loads and updates correctly"
+
 - Input: MBC3 ROM with RTC, save file with timestamp
 - Execute: Load ROM, wait 10 seconds, read RTC
 - Expected result: RTC seconds register increments correctly
 - Validation: Time progression matches elapsed real time
 
 ### 6. File Size Validation
+
 **Test**: "Invalid ROM file sizes rejected appropriately"
+
 - Input: ROM file with non-power-of-2 size (e.g., 33KB)
 - Execute: Attempt to load invalid ROM
 - Expected result: Error message, loading fails
 - Validation: No memory corruption, clear error message
 
 ### 7. Large ROM Support
+
 **Test**: "Large ROM files (2MB+) load correctly"
+
 - Input: 2MB MBC5 ROM file
 - Execute: Load ROM, test bank switching across all banks
 - Expected result: All 128 banks accessible through bank switching
 - Validation: Each bank contains different data, no aliasing
 
 ### 8. Save File Generation
+
 **Test**: "Save files created correctly for battery-backed games"
+
 - Input: MBC1 ROM with battery-backed RAM
 - Execute: Load ROM, write data to RAM, trigger save
 - Expected result: Save file created with correct RAM contents
 - Validation: Save file matches RAM size, contains written data
 
 ### 9. Missing Save File Handling
+
 **Test**: "Games with battery backup handle missing save files"
+
 - Input: Battery-backed ROM without existing save file
 - Execute: Load ROM, attempt to read RAM
 - Expected result: RAM initialized to zero (or random), no errors
 - Validation: Game functions normally with blank save data
 
 ### 10. MBC Type Detection
+
 **Test**: "All common MBC types detected and initialized correctly"
+
 - Input: Set of ROMs with different MBC types (1, 2, 3, 5)
 - Execute: Load each ROM and verify MBC behavior
 - Expected result: Each MBC exhibits correct banking behavior
@@ -390,6 +424,7 @@ Invalid Bank Numbers:
 ## Implementation Requirements
 
 ### Cartridge Loader Interface
+
 ```
 CartridgeLoader Interface:
 - loadROM(filename): Load ROM file and return cartridge object
@@ -409,6 +444,7 @@ Cartridge Object Interface:
 ```
 
 ### Memory System Integration
+
 ```
 Integration Requirements:
 - Install ROM data into memory system's ROM banks
@@ -425,6 +461,7 @@ Performance Requirements:
 ```
 
 ### Error Handling Requirements
+
 ```
 Error Handling Standards:
 - Clear error messages for common problems
@@ -447,16 +484,19 @@ Defensive Programming Patterns:
 ## References
 
 ### Primary Sources
+
 - **Pan Docs**: https://gbdev.io/pandocs/The_Cartridge_Header.html
 - **GB Dev Wiki**: https://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 - **MBC Documentation**: https://gbdev.gg8.se/wiki/articles/Memory_Bank_Controllers
 
 ### Validation Sources
+
 - **Real Cartridges**: Test with actual Game Boy cartridges for accuracy
 - **ROM Databases**: No-Intro and GoodGBX databases for header validation
 - **Homebrew ROMs**: Modern homebrew for edge case testing
 
 ### Critical Implementation Notes
+
 - Header checksum validation should warn but not block loading
 - Bank 0 redirection in MBC1 is critical for compatibility
 - Save file timing should not interfere with real-time emulation

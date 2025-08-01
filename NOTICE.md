@@ -2,14 +2,14 @@
 
 This project includes code, assets, and inspiration from:
 
-* the [mealybug-tearoom-tests](https://github.com/mattcurrie/mealybug-tearoom-tests) repository by Matt Currie, licensed under the MIT License.
-* the [kevtris/bluetech blog](http://kevtris.org/), specifically [Nitty Gritty Gameboy Cycle Timing](http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.txt) copyright by Kevin Horton.
-* the [Pan Docs](https://gbdev.io/pandocs/) Game Boy development documentation, maintained by the gbdev community.
-* the [DMG-01 Emulation Guide](https://rylev.github.io/DMG-01/public/book/) by Ryan Levick, covering Game Boy architecture and emulation techniques.
-* the [Game Boy Complete Technical Reference (GBCTR)](https://gekkio.fi/files/gb-docs/gbctr.pdf) by Gekkio, providing comprehensive Game Boy hardware documentation.
-* the [Game Boy CPU Manual](http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf) by Marc Rawer, documenting CPU functions and assembly language.
-* the [Game Boy Opcodes JSON](https://github.com/lmmendes/game-boy-opcodes) reference by lmmendes, providing corrected instruction timing and behavior data.
-* the [GBDev Opcodes Reference](https://gbdev.io/gb-opcodes/) maintained by the gbdev community.
+- the [mealybug-tearoom-tests](https://github.com/mattcurrie/mealybug-tearoom-tests) repository by Matt Currie, licensed under the MIT License.
+- the [kevtris/bluetech blog](http://kevtris.org/), specifically [Nitty Gritty Gameboy Cycle Timing](http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.txt) copyright by Kevin Horton.
+- the [Pan Docs](https://gbdev.io/pandocs/) Game Boy development documentation, maintained by the gbdev community.
+- the [DMG-01 Emulation Guide](https://rylev.github.io/DMG-01/public/book/) by Ryan Levick, covering Game Boy architecture and emulation techniques.
+- the [Game Boy Complete Technical Reference (GBCTR)](https://gekkio.fi/files/gb-docs/gbctr.pdf) by Gekkio, providing comprehensive Game Boy hardware documentation.
+- the [Game Boy CPU Manual](http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf) by Marc Rawer, documenting CPU functions and assembly language.
+- the [Game Boy Opcodes JSON](https://github.com/lmmendes/game-boy-opcodes) reference by lmmendes, providing corrected instruction timing and behavior data.
+- the [GBDev Opcodes Reference](https://gbdev.io/gb-opcodes/) maintained by the gbdev community.
 
 ## MIT License - Mealybug Tearoom Tests
 

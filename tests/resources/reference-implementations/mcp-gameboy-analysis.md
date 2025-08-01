@@ -9,6 +9,7 @@ The mcp-gameboy repository (https://github.com/mario-andreschak/mcp-gameboy) imp
 ### Implementation Approach
 
 The project uses a **wrapper architecture** around existing GameBoy emulation libraries:
+
 - Primary dependency: `gameboy-emulator` (v1.1.2) - Zero-dependency TypeScript GameBoy emulator
 - Secondary dependency: `serverboy` (v0.0.7) - Pure NodeJS headless GameBoy emulator
 
@@ -22,6 +23,7 @@ The project uses a **wrapper architecture** around existing GameBoy emulation li
 ## Component Organization
 
 ### File Structure
+
 ```
 src/
 ├── gameboy.ts          # Core emulator wrapper class
@@ -34,12 +36,14 @@ src/
 ### Component Responsibilities
 
 **GameBoyEmulator Class** (`gameboy.ts`):
+
 - Wraps the core `serverboy` emulation engine
 - Provides methods for ROM loading, button input, frame rendering
 - Handles screen capture and PNG generation using Node.js Canvas
 - Encapsulates emulator state management
 
 **EmulatorService** (`emulatorService.ts`):
+
 - Implements dependency injection pattern
 - Provides defensive programming with comprehensive error handling
 - Manages ROM validation and loading lifecycle
@@ -47,6 +51,7 @@ src/
 - Includes verbose logging for debugging
 
 **Type System** (`types.ts`):
+
 - Defines comprehensive GameBoy button enumeration
 - Tool schemas for MCP integration
 - Session management interfaces
@@ -55,12 +60,14 @@ src/
 ## Technical Implementation Details
 
 ### Memory Management
+
 - Relies entirely on underlying `serverboy` library
 - No direct memory management exposed
 - Uses ArrayBuffer for ROM data handling
 - Minimal memory footprint approach
 
 ### CPU Implementation
+
 - Delegates CPU emulation to `serverboy` library
 - `serverboy` provides:
   - Step-by-step execution control (doesn't auto-advance frames)
@@ -68,6 +75,7 @@ src/
   - Manual frame advancement via `doFrame()` method
 
 ### PPU Rendering
+
 - Uses Node.js `canvas` library for rendering
 - Converts raw screen data to ImageData format
 - Generates base64 PNG representations
@@ -75,6 +83,7 @@ src/
 - No custom palette or scaling implementation
 
 ### Performance Optimization
+
 - Minimal overhead wrapper design
 - Direct delegation to optimized underlying libraries
 - Efficient canvas-based rendering
@@ -83,19 +92,24 @@ src/
 ## Notable Design Patterns
 
 ### 1. Facade Pattern
+
 The entire architecture acts as a facade over complex emulation libraries, providing a simplified interface for common operations.
 
 ### 2. Dependency Injection
+
 ```typescript
 // EmulatorService accepts GameBoyEmulator instance
 constructor(private emulator: GameBoyEmulator)
 ```
 
 ### 3. Service Layer
+
 Clear separation between raw emulator functionality and business logic through the service layer.
 
 ### 4. Defensive Programming
+
 Extensive error checking and validation throughout:
+
 ```typescript
 if (!fs.existsSync(romPath)) {
   throw new Error(`ROM file not found: ${romPath}`);
@@ -105,12 +119,14 @@ if (!fs.existsSync(romPath)) {
 ## Comparison with Other Implementations
 
 ### Advantages over Direct Implementation
+
 1. **Rapid Development**: Leverages mature, tested emulation cores
 2. **Reduced Complexity**: Avoids implementing complex CPU and PPU logic
 3. **Stability**: Builds on proven emulation libraries
 4. **Maintainability**: Smaller codebase focused on integration rather than emulation
 
 ### Limitations
+
 1. **Black Box Dependencies**: Limited control over core emulation behavior
 2. **Performance Overhead**: Additional abstraction layers
 3. **Feature Constraints**: Limited to capabilities of underlying libraries
@@ -119,6 +135,7 @@ if (!fs.existsSync(romPath)) {
 ## Testing Approach
 
 **Limited Testing Implementation**:
+
 - No visible test suite in the analyzed codebase
 - Relies on underlying library testing
 - Manual validation through ROM loading and execution
@@ -155,6 +172,7 @@ if (!fs.existsSync(romPath)) {
 ## Technical Specifications
 
 ### Dependencies
+
 - **Runtime**: Node.js with TypeScript
 - **Core Emulation**: `gameboy-emulator` + `serverboy`
 - **Rendering**: `canvas` library
@@ -162,6 +180,7 @@ if (!fs.existsSync(romPath)) {
 - **Build Tools**: TypeScript compiler, ts-node
 
 ### Performance Characteristics
+
 - **Memory**: Minimal footprint through delegation
 - **CPU**: Depends on underlying library efficiency
 - **Rendering**: Canvas-based PNG generation

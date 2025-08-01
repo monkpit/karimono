@@ -7,11 +7,12 @@ This document consolidates technical specifications from Pan Docs and GB Dev Wik
 ## CPU Specifications (SM83)
 
 ### Register Organization
+
 ```
 16-bit Registers (can be accessed as 8-bit pairs):
 AF - Accumulator & Flags (A=accumulator, F=flags)
 BC - General purpose register pair
-DE - General purpose register pair  
+DE - General purpose register pair
 HL - General purpose register pair
 
 Special 16-bit Registers:
@@ -20,12 +21,13 @@ PC - Program Counter (points to next instruction)
 ```
 
 ### Flags Register (F)
+
 ```
 Bit 7: Z (Zero Flag)
   - Set when result of operation is zero
   - Used for conditional jumps and operations
 
-Bit 6: N (Subtraction Flag) 
+Bit 6: N (Subtraction Flag)
   - Set when last operation was subtraction
   - Used by DAA instruction for BCD operations
 
@@ -42,6 +44,7 @@ Bits 3-0: Unused (always 0)
 ```
 
 ### CPU Timing
+
 - **Clock Speed**: 4.194304 MHz (2^22 Hz)
 - **Instruction Timing**: 1-6 machine cycles per instruction
 - **Machine Cycle**: 4 clock cycles (T-states)
@@ -50,6 +53,7 @@ Bits 3-0: Unused (always 0)
 ## Memory Map
 
 ### Address Space Layout
+
 ```
 0000-3FFF: 16KB ROM Bank 00 (fixed, non-switchable)
 4000-7FFF: 16KB ROM Bank 01-NN (switchable via MBC)
@@ -66,6 +70,7 @@ FFFF:       Interrupt Enable Register
 ```
 
 ### Memory Access Restrictions
+
 - **Echo RAM (E000-FDFF)**: Should not be used, mirrors C000-DDFF
 - **FEA0-FEFF**: Behavior varies between DMG revisions
 - **OAM Access**: Restricted during PPU Mode 2 and 3
@@ -74,6 +79,7 @@ FFFF:       Interrupt Enable Register
 ### Memory Bank Controllers (MBC)
 
 #### MBC1 (Most Common)
+
 ```
 Banking Registers:
 0000-1FFF: RAM Enable (0x0A = enable, other = disable)
@@ -86,6 +92,7 @@ RAM Banks: 0-3 (32KB maximum)
 ```
 
 #### MBC2
+
 ```
 Banking Registers:
 0000-3FFF: ROM Bank Number (bit 8 of address determines function)
@@ -97,6 +104,7 @@ Built-in RAM: 256 x 4-bit (512 bytes effective)
 ```
 
 #### MBC3 (With RTC)
+
 ```
 Banking Registers:
 0000-1FFF: RAM and Timer Enable
@@ -112,6 +120,7 @@ RTC Registers: Seconds, Minutes, Hours, Days
 ## PPU Specifications
 
 ### LCD Control Register (LCDC - FF40)
+
 ```
 Bit 7: LCD Display Enable (0=Off, 1=On)
 Bit 6: Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
@@ -124,6 +133,7 @@ Bit 0: BG Display (0=Off, 1=On)
 ```
 
 ### PPU Modes and Timing
+
 ```
 Mode 0 (HBLANK): 204-207 cycles (depends on sprite count)
 Mode 1 (VBLANK): 4560 cycles (10 scanlines * 456 cycles)
@@ -137,6 +147,7 @@ VBlank Scanlines: 144-153 (10 lines)
 ```
 
 ### VRAM Organization
+
 ```
 Tile Data Area 1: 8000-8FFF (tiles 0-255, signed addressing)
 Tile Data Area 2: 8800-97FF (tiles -128 to 127, unsigned addressing)
@@ -148,20 +159,22 @@ Tile Format: 8x8 pixels, 2 bits per pixel, 16 bytes per tile
 ```
 
 ### OAM Structure (4 bytes per sprite, 40 sprites total)
+
 ```
 Byte 0: Y Position (sprite Y + 16)
-Byte 1: X Position (sprite X + 8)  
+Byte 1: X Position (sprite X + 8)
 Byte 2: Tile Number
 Byte 3: Attributes
   Bit 7: OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG)
   Bit 6: Y Flip (0=Normal, 1=Vertically Mirrored)
-  Bit 5: X Flip (0=Normal, 1=Horizontally Mirrored)  
+  Bit 5: X Flip (0=Normal, 1=Horizontally Mirrored)
   Bit 4: Palette Number (0=OBP0, 1=OBP1)
 ```
 
 ## Audio Processing Unit (APU)
 
 ### Sound Channels
+
 ```
 Channel 1 (FF10-FF14): Tone & Sweep
 Channel 2 (FF16-FF19): Tone
@@ -170,14 +183,16 @@ Channel 4 (FF20-FF23): Noise
 ```
 
 ### Master Volume Control (FF24)
+
 ```
 Bit 7: Output Vin to SO2 terminal
 Bit 6-4: SO2 output level (volume)
-Bit 3: Output Vin to SO1 terminal  
+Bit 3: Output Vin to SO1 terminal
 Bit 2-0: SO1 output level (volume)
 ```
 
 ### Sound Timing
+
 - **Sample Rate**: 4.194304 MHz / 95 ≈ 44.1 kHz
 - **Frame Sequencer**: 512 Hz (updates length counters, envelopes, sweep)
 - **Channel Updates**: Varies by channel type
@@ -185,6 +200,7 @@ Bit 2-0: SO1 output level (volume)
 ## Interrupt System
 
 ### Interrupt Enable Register (FFFF)
+
 ```
 Bit 4: Joypad Interrupt Enable
 Bit 3: Serial Interrupt Enable
@@ -194,21 +210,24 @@ Bit 0: VBlank Interrupt Enable
 ```
 
 ### Interrupt Flag Register (FF0F)
+
 ```
 Same bit layout as Interrupt Enable Register
 Set by hardware, cleared by software or interrupt handling
 ```
 
 ### Interrupt Vectors
+
 ```
 0040: VBlank Interrupt
-0048: LCD STAT Interrupt  
+0048: LCD STAT Interrupt
 0050: Timer Interrupt
 0058: Serial Interrupt
 0060: Joypad Interrupt
 ```
 
 ### Interrupt Handling Process
+
 1. Check if interrupts enabled (IME flag)
 2. Check for pending interrupts (IE & IF)
 3. Push PC to stack
@@ -219,14 +238,16 @@ Set by hardware, cleared by software or interrupt handling
 ## Timer System
 
 ### Timer Registers
+
 ```
 FF04: DIV - Divider Register (increments at 16384 Hz)
 FF05: TIMA - Timer Counter
-FF06: TMA - Timer Modulo  
+FF06: TMA - Timer Modulo
 FF07: TAC - Timer Control
 ```
 
 ### Timer Control (TAC)
+
 ```
 Bit 2: Timer Enable (0=Stop, 1=Start)
 Bits 1-0: Clock Select
@@ -239,6 +260,7 @@ Bits 1-0: Clock Select
 ## Input System
 
 ### Joypad Register (FF00)
+
 ```
 Bit 7-6: Not used
 Bit 5: P15 Select Button Keys (0=Select)
@@ -250,10 +272,11 @@ Bit 0: P10 Input Right or Button A (0=Pressed)
 ```
 
 ### Button Matrix
+
 ```
 P14 Selected (Direction):
   Bit 3: Down
-  Bit 2: Up  
+  Bit 2: Up
   Bit 1: Left
   Bit 0: Right
 
@@ -267,6 +290,7 @@ P15 Selected (Buttons):
 ## Cartridge Header
 
 ### Header Layout (0100-014F)
+
 ```
 0100-0103: Entry Point (NOP; JP 0150)
 0104-0133: Nintendo Logo (compressed bitmap)
@@ -284,6 +308,7 @@ P15 Selected (Buttons):
 ```
 
 ### Cartridge Types (Common)
+
 ```
 00: ROM Only
 01: MBC1
@@ -307,6 +332,7 @@ P15 Selected (Buttons):
 ## Emulation Requirements
 
 ### Accuracy Considerations
+
 1. **Cycle Accuracy**: All operations must consume correct number of cycles
 2. **Memory Access Timing**: PPU memory access restrictions must be enforced
 3. **Interrupt Timing**: Precise interrupt handling and timing
@@ -314,13 +340,15 @@ P15 Selected (Buttons):
 5. **Audio Timing**: Proper audio channel timing and mixing
 
 ### Performance Targets
+
 - **Native Speed**: Maintain 4.194304 MHz CPU speed
 - **Frame Rate**: Stable 59.7 FPS output
 - **Audio**: Consistent 44.1 kHz audio output without dropouts
 - **Input Latency**: Minimal delay between input and response
 
 ### Testing Requirements
+
 1. **Blargg Test ROMs**: CPU instruction and timing validation
-2. **Mealybug Tests**: PPU accuracy and timing validation  
+2. **Mealybug Tests**: PPU accuracy and timing validation
 3. **DMG Acid Test**: Comprehensive system behavior validation
 4. **Real Hardware Comparison**: Behavior matching with actual DMG

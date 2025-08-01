@@ -1,0 +1,9 @@
+dist/
+node_modules/
+coverage/
+.vite/
+.cache/
+build/
+tests/resources/
+*.md
+package-lock.json
