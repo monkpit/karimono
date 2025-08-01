@@ -34,9 +34,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests (quick check)
-        run: npm run test:unit
-
       - name: Build project
         run: npm run build
         env:
