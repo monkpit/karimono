@@ -121,14 +121,15 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Jest Coverage Report
+        uses: ArtiomTr/jest-coverage-report-action@v2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-          flags: emulator
-          name: game-boy-emulator-coverage
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          threshold: 70
+          working-directory: ./
+          test-script: npm test
+          annotations: all
+          package-manager: npm
 
       - name: Build project
         run: npm run build
