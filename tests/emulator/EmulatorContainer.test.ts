@@ -151,6 +151,30 @@ describe('EmulatorContainer', () => {
       expect(container.getMemory).toBeDefined();
       expect(container.getMemory()).toBeUndefined();
     });
+
+    it('should provide access to MMU component', () => {
+      // MMU should be implemented and accessible
+      const mmu = container.getMMU();
+      expect(mmu).toBeTruthy();
+      expect(typeof mmu.readByte).toBe('function');
+      expect(typeof mmu.writeByte).toBe('function');
+      expect(typeof mmu.setPostBootState).toBe('function');
+    });
+
+    it('should initialize MMU to post-boot state during construction', () => {
+      // Test: MMU should be automatically set to post-boot state during container initialization
+      // This implements ADR-001 requirement for components to default to post-boot state
+
+      const mmu = container.getMMU();
+
+      // Verify: Boot ROM should be disabled
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+
+      // Verify: Critical I/O registers should be set to post-boot values
+      expect(mmu.readByte(0xff40)).toBe(0x91); // LCDC - LCD Control
+      expect(mmu.readByte(0xff47)).toBe(0xfc); // BGP - Background Palette
+      expect(mmu.readByte(0xff50)).toBe(0x01); // Boot ROM disabled
+    });
   });
 
   describe('inter-component communication', () => {

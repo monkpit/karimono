@@ -18,6 +18,7 @@ export class MMU implements MMUComponent {
   private cartridge: CartridgeComponent | undefined; // Loaded cartridge
   private cartridgeLoadAttempted = false; // Track if loadCartridge() has been called
   private ioRegisters = new Map<number, number>(); // I/O register storage
+  private postBootStateSet = false; // Track if setPostBootState has been called
 
   // Banking state tracking (updated via MBC register writes)
   private currentROMBank = 1; // Default ROM bank for switchable region
@@ -32,8 +33,15 @@ export class MMU implements MMUComponent {
     // Initialize memory to zero
     this.memory.fill(0x00);
 
-    // Reset boot ROM overlay to enabled (hardware default)
-    this.bootROMEnabled = true;
+    // Reset boot ROM overlay state based on whether post-boot state has been set
+    if (this.postBootStateSet) {
+      // Maintain post-boot state: boot ROM stays disabled
+      this.bootROMEnabled = false;
+    } else {
+      // Normal reset: boot ROM re-enabled (hardware default)
+      this.bootROMEnabled = true;
+    }
+
     this.bootROMLoaded = false;
     this.cartridgeLoadAttempted = false;
 
@@ -42,11 +50,17 @@ export class MMU implements MMUComponent {
     this.currentRAMBank = 0;
     this.ramEnabled = false;
 
-    // Reset I/O registers to default values
+    // Reset I/O registers based on post-boot state
     this.ioRegisters.clear();
-    this.ioRegisters.set(0xff50, 0x00); // Boot ROM control register
-    this.ioRegisters.set(0xff01, 0x00); // Serial data register
-    this.ioRegisters.set(0xff02, 0x00); // Serial control register
+    if (this.postBootStateSet) {
+      // Set post-boot register values
+      this.initializePostBootIORegisters();
+    } else {
+      // Set normal default values
+      this.ioRegisters.set(0xff50, 0x00); // Boot ROM control register
+      this.ioRegisters.set(0xff01, 0x00); // Serial data register
+      this.ioRegisters.set(0xff02, 0x00); // Serial control register
+    }
   }
 
   readByte(address: number): number {
@@ -231,13 +245,122 @@ export class MMU implements MMUComponent {
    * Undefined registers should not store writes and always return 0xFF on reads
    */
   private isDefinedIORegister(address: number): boolean {
-    // List of defined I/O registers for basic MMU functionality
+    // Expand list of defined I/O registers for post-boot state support
     const definedRegisters = new Set([
+      // Serial port
       0xff01, // Serial port data
       0xff02, // Serial port control
+
+      // PPU/LCD system
+      0xff40, // LCDC - LCD Control
+      0xff41, // STAT - LCD Status
+      0xff42, // SCY - Scroll Y
+      0xff43, // SCX - Scroll X
+      0xff44, // LY - LCD Y Coordinate
+      0xff45, // LYC - LY Compare
+      0xff46, // DMA Transfer
+      0xff47, // BGP - Background Palette
+      0xff48, // OBP0 - Object Palette 0
+      0xff49, // OBP1 - Object Palette 1
+      0xff4a, // WY - Window Y Position
+      0xff4b, // WX - Window X Position
+
+      // Sound system
+      0xff10,
+      0xff11,
+      0xff12,
+      0xff14, // Channel 1
+      0xff16,
+      0xff17,
+      0xff19, // Channel 2
+      0xff1a,
+      0xff1b,
+      0xff1c,
+      0xff1e, // Channel 3
+      0xff20,
+      0xff21,
+      0xff22,
+      0xff23, // Channel 4
+      0xff24,
+      0xff25,
+      0xff26, // Master control
+
+      // Boot ROM control
       0xff50, // Boot ROM control
     ]);
 
     return definedRegisters.has(address);
+  }
+
+  /**
+   * Set MMU to post-boot hardware state
+   * Implements ADR-001 requirement for components to initialize to post-boot state
+   */
+  setPostBootState(): void {
+    // Mark that post-boot state has been set (affects reset behavior)
+    this.postBootStateSet = true;
+
+    // Permanently disable boot ROM
+    this.bootROMEnabled = false;
+
+    // Clear memory to deterministic state
+    this.memory.fill(0x00);
+
+    // Initialize I/O registers to exact DMG post-boot values
+    this.initializePostBootIORegisters();
+
+    // Reset banking state
+    this.currentROMBank = 1;
+    this.currentRAMBank = 0;
+    this.ramEnabled = false;
+  }
+
+  /**
+   * Initialize I/O registers to exact DMG post-boot values
+   * Based on hardware specification documentation
+   */
+  private initializePostBootIORegisters(): void {
+    this.ioRegisters.clear();
+
+    // PPU/LCD System - exact post-boot values from hardware spec
+    this.ioRegisters.set(0xff40, 0x91); // LCDC - LCD Control
+    this.ioRegisters.set(0xff41, 0x80); // STAT - LCD Status
+    this.ioRegisters.set(0xff42, 0x00); // SCY - Scroll Y
+    this.ioRegisters.set(0xff43, 0x00); // SCX - Scroll X
+    this.ioRegisters.set(0xff44, 0x00); // LY - LCD Y Coordinate
+    this.ioRegisters.set(0xff45, 0x00); // LYC - LY Compare
+    this.ioRegisters.set(0xff46, 0x00); // DMA Transfer
+    this.ioRegisters.set(0xff47, 0xfc); // BGP - Background Palette
+    this.ioRegisters.set(0xff48, 0x00); // OBP0 - Object Palette 0
+    this.ioRegisters.set(0xff49, 0x00); // OBP1 - Object Palette 1
+    this.ioRegisters.set(0xff4a, 0x00); // WY - Window Y Position
+    this.ioRegisters.set(0xff4b, 0x00); // WX - Window X Position
+
+    // Sound System - exact post-boot values from hardware spec
+    this.ioRegisters.set(0xff10, 0x80); // NR10 - Channel 1 Sweep
+    this.ioRegisters.set(0xff11, 0xbf); // NR11 - Channel 1 Sound length/Wave pattern duty
+    this.ioRegisters.set(0xff12, 0xf3); // NR12 - Channel 1 Volume Envelope
+    this.ioRegisters.set(0xff14, 0xbf); // NR14 - Channel 1 Frequency hi
+    this.ioRegisters.set(0xff16, 0x3f); // NR21 - Channel 2 Sound Length/Wave Pattern Duty
+    this.ioRegisters.set(0xff17, 0x00); // NR22 - Channel 2 Volume Envelope
+    this.ioRegisters.set(0xff19, 0xbf); // NR24 - Channel 2 Frequency hi
+    this.ioRegisters.set(0xff1a, 0x7f); // NR30 - Channel 3 Sound on/off
+    this.ioRegisters.set(0xff1b, 0xff); // NR31 - Channel 3 Sound Length
+    this.ioRegisters.set(0xff1c, 0x9f); // NR32 - Channel 3 Select output level
+    this.ioRegisters.set(0xff1e, 0xbf); // NR34 - Channel 3 Frequency hi
+    this.ioRegisters.set(0xff20, 0xff); // NR41 - Channel 4 Sound Length
+    this.ioRegisters.set(0xff21, 0x00); // NR42 - Channel 4 Volume Envelope
+    this.ioRegisters.set(0xff22, 0x00); // NR43 - Channel 4 Polynomial Counter
+    this.ioRegisters.set(0xff23, 0xbf); // NR44 - Channel 4 Counter/consecutive; Initial
+    this.ioRegisters.set(0xff24, 0x77); // NR50 - Channel control / ON-OFF / Volume
+    this.ioRegisters.set(0xff25, 0xf3); // NR51 - Selection of Sound output terminal
+    this.ioRegisters.set(0xff26, 0xf1); // NR52 - Sound on/off
+
+    // Serial port
+    this.ioRegisters.set(0xff01, 0x00); // Serial data register
+    this.ioRegisters.set(0xff02, 0x00); // Serial control register
+
+    // Boot ROM control (shows disabled state)
+    this.ioRegisters.set(0xff50, 0x01); // Boot ROM disabled
   }
 }

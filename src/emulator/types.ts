@@ -164,6 +164,13 @@ export interface MMUComponent extends MemoryComponent {
    * Load boot ROM data for boot sequence
    */
   loadBootROM(_bootROMData: Uint8Array): void;
+
+  /**
+   * Set MMU to post-boot hardware state
+   * Implements ADR-001 requirement for components to initialize to post-boot state
+   * Sets boot ROM disabled and initializes I/O registers to exact hardware values
+   */
+  setPostBootState(): void;
 }
 
 /**

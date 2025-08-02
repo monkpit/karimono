@@ -413,6 +413,156 @@ describe('MMU Component', () => {
   });
 
   /**
+   * POST-BOOT STATE INITIALIZATION TESTS
+   *
+   * Tests implementation of ADR-001 requirement for components to initialize to post-boot state.
+   * The setPostBootState() method sets hardware registers to exact post-boot values and
+   * permanently disables boot ROM for test ROM compatibility.
+   *
+   * Hardware Reference: docs/hardware/dmg-post-boot-state-specification.md
+   * Test ROM Requirement: Blargg and Mealybug tests expect proper post-boot state
+   */
+  describe('Post-Boot State Initialization', () => {
+    it('should have setPostBootState method available', () => {
+      // RED PHASE: This test will FAIL until setPostBootState method is implemented
+      // Test: Method should exist on MMU component
+      expect(typeof mmu.setPostBootState).toBe('function');
+    });
+
+    it('should permanently disable boot ROM when setPostBootState is called', () => {
+      // RED PHASE: This test will FAIL until setPostBootState implementation
+      // Test: Boot ROM should be permanently disabled for test ROM compatibility
+
+      // Setup: Load boot ROM to ensure it starts enabled
+      const mockBootROM = new Uint8Array(256).fill(0x31);
+      mmu.loadBootROM(mockBootROM);
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(true);
+
+      // Test: setPostBootState should disable boot ROM permanently
+      mmu.setPostBootState();
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+
+      // Verify: Boot ROM should remain disabled even after reset() call
+      // This is different from normal reset() which re-enables boot ROM
+      mmu.reset();
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+    });
+
+    it('should initialize I/O registers to exact DMG post-boot values', () => {
+      // RED PHASE: This test will FAIL until I/O register initialization is implemented
+      // Test: Critical I/O registers must match documented DMG post-boot state
+
+      // Call setPostBootState method
+      mmu.setPostBootState();
+
+      // Test: PPU registers match DMG post-boot state (from hardware spec)
+      expect(mmu.readByte(0xff40)).toBe(0x91); // LCDC - LCD Control
+      expect(mmu.readByte(0xff41)).toBe(0x80); // STAT - LCD Status
+      expect(mmu.readByte(0xff42)).toBe(0x00); // SCY - Scroll Y
+      expect(mmu.readByte(0xff43)).toBe(0x00); // SCX - Scroll X
+      expect(mmu.readByte(0xff44)).toBe(0x00); // LY - LCD Y Coordinate
+      expect(mmu.readByte(0xff45)).toBe(0x00); // LYC - LY Compare
+      expect(mmu.readByte(0xff46)).toBe(0x00); // DMA Transfer
+      expect(mmu.readByte(0xff47)).toBe(0xfc); // BGP - Background Palette
+      expect(mmu.readByte(0xff48)).toBe(0x00); // OBP0 - Object Palette 0
+      expect(mmu.readByte(0xff49)).toBe(0x00); // OBP1 - Object Palette 1
+      expect(mmu.readByte(0xff4a)).toBe(0x00); // WY - Window Y Position
+      expect(mmu.readByte(0xff4b)).toBe(0x00); // WX - Window X Position
+
+      // Test: Boot ROM control register shows disabled state
+      expect(mmu.readByte(0xff50)).toBe(0x01); // Boot ROM disabled
+    });
+
+    it('should initialize sound system I/O registers to post-boot values', () => {
+      // RED PHASE: This test will FAIL until sound register initialization is implemented
+      // Test: Sound registers must be set to documented post-boot state
+
+      mmu.setPostBootState();
+
+      // Test: Sound system registers (basic subset for MMU testing)
+      expect(mmu.readByte(0xff10)).toBe(0x80); // NR10 - Channel 1 Sweep
+      expect(mmu.readByte(0xff11)).toBe(0xbf); // NR11 - Channel 1 Sound length/Wave pattern duty
+      expect(mmu.readByte(0xff12)).toBe(0xf3); // NR12 - Channel 1 Volume Envelope
+      expect(mmu.readByte(0xff14)).toBe(0xbf); // NR14 - Channel 1 Frequency hi
+      expect(mmu.readByte(0xff16)).toBe(0x3f); // NR21 - Channel 2 Sound Length/Wave Pattern Duty
+      expect(mmu.readByte(0xff17)).toBe(0x00); // NR22 - Channel 2 Volume Envelope
+      expect(mmu.readByte(0xff19)).toBe(0xbf); // NR24 - Channel 2 Frequency hi
+      expect(mmu.readByte(0xff1a)).toBe(0x7f); // NR30 - Channel 3 Sound on/off
+      expect(mmu.readByte(0xff1b)).toBe(0xff); // NR31 - Channel 3 Sound Length
+      expect(mmu.readByte(0xff1c)).toBe(0x9f); // NR32 - Channel 3 Select output level
+      expect(mmu.readByte(0xff1e)).toBe(0xbf); // NR34 - Channel 3 Frequency hi
+      expect(mmu.readByte(0xff20)).toBe(0xff); // NR41 - Channel 4 Sound Length
+      expect(mmu.readByte(0xff21)).toBe(0x00); // NR42 - Channel 4 Volume Envelope
+      expect(mmu.readByte(0xff22)).toBe(0x00); // NR43 - Channel 4 Polynomial Counter
+      expect(mmu.readByte(0xff23)).toBe(0xbf); // NR44 - Channel 4 Counter/consecutive; Initial
+      expect(mmu.readByte(0xff24)).toBe(0x77); // NR50 - Channel control / ON-OFF / Volume
+      expect(mmu.readByte(0xff25)).toBe(0xf3); // NR51 - Selection of Sound output terminal
+      expect(mmu.readByte(0xff26)).toBe(0xf1); // NR52 - Sound on/off
+    });
+
+    it('should set memory regions to deterministic state', () => {
+      // RED PHASE: This test will FAIL until memory clearing is implemented
+      // Test: Memory should be in deterministic state for test reproducibility
+
+      // Setup: Write some data to test regions
+      mmu.writeByte(0xc000, 0x42); // WRAM
+      mmu.writeByte(0x8000, 0x99); // VRAM
+      mmu.writeByte(0xfe00, 0xaa); // OAM
+
+      // Test: setPostBootState should clear memory to deterministic state
+      mmu.setPostBootState();
+
+      // Verify: Key memory regions are cleared
+      expect(mmu.readByte(0xc000)).toBe(0x00); // WRAM cleared
+      expect(mmu.readByte(0x8000)).toBe(0x00); // VRAM cleared
+      expect(mmu.readByte(0xfe00)).toBe(0x00); // OAM cleared
+
+      // Verify: Memory regions that should be left alone
+      // Note: ROM regions (0x0000-0x7FFF) should not be modified
+    });
+
+    it('should be idempotent - multiple calls produce same result', () => {
+      // RED PHASE: This test will FAIL until idempotent implementation
+      // Test: Multiple calls to setPostBootState should be safe
+
+      // Call setPostBootState multiple times
+      mmu.setPostBootState();
+      mmu.setPostBootState();
+      mmu.setPostBootState();
+
+      // Verify: State should be same as single call
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+      expect(mmu.readByte(0xff40)).toBe(0x91); // LCDC
+      expect(mmu.readByte(0xff47)).toBe(0xfc); // BGP
+      expect(mmu.readByte(0xff50)).toBe(0x01); // Boot ROM disabled
+
+      // Verify: No side effects from multiple calls
+      expect(() => mmu.setPostBootState()).not.toThrow();
+    });
+
+    it('should maintain post-boot state after component reset', () => {
+      // RED PHASE: This test will FAIL until persistent state implementation
+      // Test: Post-boot state should persist through reset() calls
+      // This implements ADR-001 requirement that components default to post-boot state
+
+      // Setup: Set post-boot state
+      mmu.setPostBootState();
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+
+      // Test: reset() should maintain post-boot state, not revert to boot-enabled
+      mmu.reset();
+
+      // Verify: Boot ROM remains disabled after reset (key difference from normal reset)
+      expect(mmu.getSnapshot().bootROMEnabled).toBe(false);
+
+      // Verify: I/O registers maintain post-boot values after reset
+      expect(mmu.readByte(0xff40)).toBe(0x91); // LCDC
+      expect(mmu.readByte(0xff47)).toBe(0xfc); // BGP
+      expect(mmu.readByte(0xff50)).toBe(0x01); // Boot ROM disabled
+    });
+  });
+
+  /**
    * ROM LOADING AND BANKING SYSTEM TESTS
    *
    * Tests cartridge ROM integration and bank switching for MBC compatibility.

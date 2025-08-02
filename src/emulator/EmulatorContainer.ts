@@ -73,6 +73,9 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     // 2. Initialize MMU component (no dependencies, needed by CPU)
     this.mmuComponent = new MMU();
 
+    // 3. Set MMU to post-boot state (implements ADR-001)
+    this.mmuComponent.setPostBootState();
+
     // Other components remain undefined until implemented
     this.cpuComponent = undefined;
     this.ppuComponent = undefined;
