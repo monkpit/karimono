@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "jest --coverageReporters=lcov --coverageReporters=text",
+    "test": "jest --coverageReporters=lcov --coverageReporters=text --coverageReporters=json",
+    "test:ci": "npm run test && npm run coverage:analyze",
     "test:watch": "jest --watch --coverage=false --bail=0",
     "test:coverage": "jest --verbose",
     "test:coverage:html": "jest && open coverage/lcov-report/index.html",
@@ -22,7 +23,7 @@
     "test:memory": "jest --testPathPatterns=memory --verbose",
     "test:debug": "jest --verbose --detectOpenHandles --forceExit --coverage=false --bail=0",
     "coverage:analyze": "node scripts/coverage-analysis.js",
-    "validate": "npm run lint:fix && npm run format && npm run typecheck && npm run test && npm run build",
+    "validate": "npm run lint:fix && npm run format && npm run typecheck && npm run test:ci && npm run build",
     "generate-license-report": "license-report --output=table > LICENSES.md",
     "prepare": "husky"
   },

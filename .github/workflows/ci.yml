@@ -102,8 +102,8 @@ jobs:
 
       - name: Generate test coverage with threshold enforcement
         run: |
-          # Run tests with coverage and capture exit code
-          npm run test
+          # Run tests with coverage and analysis
+          npm run test:ci
           TEST_EXIT_CODE=$?
 
           # Store the test result for validation
@@ -111,10 +111,6 @@ jobs:
         env:
           NODE_OPTIONS: --max_old_space_size=4096
           CI: true
-
-      - name: Analyze coverage for hardware emulation components
-        run: npm run coverage:analyze
-        continue-on-error: false
 
       - name: Validate hardware accuracy with test ROMs
         run: |
