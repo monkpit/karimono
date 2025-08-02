@@ -1,5 +1,8 @@
 # Game Boy DMG Emulator Component Architecture
 
+> **⚠️ OUTDATED DOCUMENT NOTICE**  
+> **Performance Optimization (2025-08-02)**: This document contains outdated architecture patterns that include complex dependency injection and PPU mode access control. The current implementation uses simplified architecture for performance. See `/home/pittm/karimono-v2/docs/specs/mmu-architecture-fixed.md` for current architecture and `/home/pittm/karimono-v2/docs/decisions/mmu-performance-optimization.md` for context.
+
 ## ARCHITECTURE APPROVED
 
 Based on comprehensive analysis of hardware specifications and reference implementations (JSMoo, GameBoy Online), this document defines the complete component architecture for our Game Boy DMG emulator, optimized for both native performance (4.194304 MHz) and comprehensive testability.

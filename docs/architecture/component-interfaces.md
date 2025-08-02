@@ -1,5 +1,8 @@
 # Game Boy DMG Component Interface Specifications
 
+> **⚠️ OUTDATED DOCUMENT NOTICE**  
+> **Performance Optimization (2025-08-02)**: This document contains outdated interface specifications that include PPU mode access control. The current implementation uses simplified interfaces for performance. See `/home/pittm/karimono-v2/src/emulator/types.ts` for current interfaces and `/home/pittm/karimono-v2/docs/decisions/mmu-performance-optimization.md` for context.
+
 ## Overview
 
 This document defines the precise TypeScript interfaces that establish the contracts between all Game Boy DMG emulator components. These interfaces enforce architectural boundaries, enable comprehensive testing, and ensure component isolation while maintaining native performance.

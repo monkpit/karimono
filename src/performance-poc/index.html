@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Boy Emulator Performance POC</title>
+    <style>
+      /* Reset and base styles */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+        color: #333;
+      }
+
+      .performance-poc {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      .performance-poc h1 {
+        background: linear-gradient(90deg, #4f46e5, #7c3aed);
+        color: white;
+        text-align: center;
+        padding: 30px;
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+      }
+
+      /* Controls section */
+      .controls {
+        padding: 30px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        flex-wrap: wrap;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .control-group label {
+        font-weight: 600;
+        color: #4a5568;
+      }
+
+      select {
+        padding: 10px 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      select:hover {
+        border-color: #4f46e5;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+      }
+
+      .toggle-btn {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+      }
+
+      .toggle-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      }
+
+      .toggle-btn:active {
+        transform: translateY(0);
+      }
+
+      /* Metrics display */
+      .metrics-display {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+        padding: 30px;
+      }
+
+      .metric-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      }
+
+      .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border-color: #4f46e5;
+      }
+
+      .metric-card h3 {
+        color: #4a5568;
+        font-size: 1.1rem;
+        margin-bottom: 15px;
+        font-weight: 600;
+      }
+
+      .metric-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1a202c;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      }
+
+      /* Performance analysis section */
+      .performance-analysis {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        padding: 30px;
+        background: #f7fafc;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .target-info {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        border: 2px solid #e2e8f0;
+      }
+
+      .target-info h3 {
+        color: #4a5568;
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+      }
+
+      .target-info p {
+        color: #6b7280;
+        font-size: 1.1rem;
+        line-height: 1.6;
+      }
+
+      .achievement-metric {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        border: 2px solid #e2e8f0;
+      }
+
+      .achievement-metric h3 {
+        color: #4a5568;
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+      }
+
+      .percentage-display {
+        font-size: 3rem;
+        font-weight: 700;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        color: #ef4444;
+        transition: color 0.3s ease;
+      }
+
+      /* Test status */
+      .test-status {
+        padding: 30px;
+        background: #1f2937;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      .status-indicator {
+        font-size: 1.2rem;
+        font-weight: 600;
+        padding: 10px 20px;
+        background: #374151;
+        border-radius: 8px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      }
+
+      .mode-indicator {
+        font-size: 1.1rem;
+        color: #d1d5db;
+      }
+
+      .mode-indicator span {
+        font-weight: 600;
+        color: #fbbf24;
+      }
+
+      /* Responsive design */
+      @media (max-width: 768px) {
+        .performance-poc h1 {
+          font-size: 2rem;
+          padding: 20px;
+        }
+
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 20px;
+        }
+
+        .control-group {
+          justify-content: space-between;
+        }
+
+        .metrics-display {
+          grid-template-columns: 1fr;
+          padding: 20px;
+        }
+
+        .performance-analysis {
+          grid-template-columns: 1fr;
+          padding: 20px;
+        }
+
+        .test-status {
+          flex-direction: column;
+          align-items: stretch;
+          text-align: center;
+          padding: 20px;
+        }
+      }
+
+      /* Animation for metric updates */
+      .metric-value {
+        transition: all 0.2s ease;
+      }
+
+      .metric-value.updating {
+        color: #4f46e5;
+        transform: scale(1.05);
+      }
+
+      /* Progress indicators */
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 15px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        transition: width 0.3s ease;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { PerformancePOCApp } from './performance-poc-app.ts';
+
+      // Initialize the app
+      const appContainer = document.getElementById('app');
+      if (appContainer) {
+        const app = new PerformancePOCApp(appContainer);
+        app.render();
+
+        // Add some helpful console info
+        console.log('Performance POC App initialized');
+        console.log('Target: 4.2MHz (4,200,000 operations/second)');
+        console.log('Use the controls to test immutable vs mutable performance');
+
+        // Make app available for debugging
+        window.performancePOC = app;
+      } else {
+        console.error('Could not find app container element');
+      }
+    </script>
+  </body>
+</html>
