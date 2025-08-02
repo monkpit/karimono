@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Boy Emulator Demo</title>
+    <style>
+      body {
+        font-family: 'Courier New', monospace;
+        background: #1a1a1a;
+        color: #00ff00;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 800px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #00ff00;
+        text-shadow: 0 0 10px #00ff00;
+        margin-bottom: 30px;
+      }
+
+      .emulator-section {
+        background: #2a2a2a;
+        border: 2px solid #00ff00;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      button {
+        background: #333;
+        color: #00ff00;
+        border: 1px solid #00ff00;
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 5px;
+        font-family: inherit;
+        transition: all 0.3s;
+        font-size: 14px;
+      }
+
+      button:hover {
+        background: #00ff00;
+        color: #000;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .status {
+        text-align: center;
+        margin: 15px 0;
+        font-size: 18px;
+        padding: 10px;
+        border-radius: 5px;
+        background: #111;
+      }
+
+      .status-running {
+        color: #00ff00;
+        border: 1px solid #00ff00;
+      }
+
+      .status-stopped {
+        color: #ff6666;
+        border: 1px solid #ff6666;
+      }
+
+      .display-container {
+        display: flex;
+        justify-content: center;
+        background: #111;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #444;
+      }
+
+      .info {
+        background: #1a1a1a;
+        border: 1px solid #444;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 20px;
+      }
+
+      .info h3 {
+        color: #00ff00;
+        margin-top: 0;
+      }
+
+      .pattern-controls {
+        margin-bottom: 20px;
+      }
+
+      .pattern-controls h4 {
+        color: #00ff00;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎮 Game Boy Emulator Demo</h1>
+
+      <div class="emulator-section">
+        <div id="status" class="status status-stopped">Status: Loading...</div>
+
+        <div class="controls">
+          <button id="start-btn">Start Emulator</button>
+          <button id="stop-btn">Stop Emulator</button>
+          <button id="reset-btn">Reset Emulator</button>
+        </div>
+
+        <div class="pattern-controls">
+          <h4>Test Patterns</h4>
+          <div class="controls">
+            <button id="pattern-checkerboard">Checkerboard</button>
+            <button id="pattern-gradient">Gradient</button>
+            <button id="pattern-stripes">Stripes</button>
+            <button id="pattern-noise">Noise</button>
+            <button id="pattern-clear">Clear</button>
+          </div>
+        </div>
+
+        <div id="emulator-display" class="display-container">
+          <!-- EmulatorContainer will inject the canvas here -->
+        </div>
+      </div>
+
+      <div class="info">
+        <h3>Demo Information</h3>
+        <p><strong>Resolution:</strong> 160×144 pixels (Game Boy DMG)</p>
+        <p><strong>Scale:</strong> 3x for modern displays (480×432)</p>
+        <p><strong>Architecture:</strong> EmulatorContainer manages EmulatorDisplay component</p>
+        <p><strong>State:</strong> Mutable architecture for optimal performance</p>
+        <p><strong>Communication:</strong> Inter-component dependency injection</p>
+        <p><strong>Colors:</strong> Authentic Game Boy DMG green palette</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/demo/demo.ts"></script>
+  </body>
+</html>

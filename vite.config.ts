@@ -10,6 +10,10 @@ export default defineConfig({
     minify: 'terser',
     target: 'es2022',
     rollupOptions: {
+      input: {
+        main: './index.html',
+        demo: './demo.html',
+      },
       output: {
         manualChunks: {
           vendor: ['typescript'],
@@ -22,7 +26,17 @@ export default defineConfig({
     port: 3000,
     open: true,
     watch: {
-      ignored: ['**/coverage/**', '**/node_modules/**', '**/dist/**', '**/.git/**'],
+      ignored: [
+        '**/coverage/**',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.git/**',
+        '**/.jestcache/**',
+        '**/coverage.txt',
+        '**/coverage.json',
+        '**/lcov.info',
+        '**/*.lcov',
+      ],
     },
   },
 

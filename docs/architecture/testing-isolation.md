@@ -1,5 +1,8 @@
 # Game Boy DMG Emulator Testing Isolation Strategies
 
+> **⚠️ OUTDATED DOCUMENT NOTICE**  
+> **Performance Optimization (2025-08-02)**: This document contains outdated testing patterns that include PPU mode access control testing. The current implementation uses simplified testing approaches for performance-optimized components. See `/home/pittm/karimono-v2/docs/specs/mmu-architecture-fixed.md` for current testing patterns.
+
 ## Overview
 
 This document defines comprehensive testing isolation strategies that enable each component to be tested independently while ensuring the complete system achieves cycle-accurate Game Boy DMG emulation. The strategies balance thorough testing coverage with maintainable, fast-executing test suites.

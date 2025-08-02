@@ -30,6 +30,8 @@ Recent performance testing revealed critical insights about our architecture req
 
 **Architectural Decision**: Based on these findings, the emulator core will use **mutable state patterns** for performance-critical paths while maintaining immutable patterns for user-facing APIs and debugging tools.
 
+**Memory Access Decision**: PPU mode access checking has been removed to eliminate ~1 million function calls per second overhead. This aligns with GameBoy Online's performance-first approach while maintaining hardware accuracy for memory mapping and bank switching.
+
 ### Real-Time Constraints
 
 - **Frame Budget**: 16.742 milliseconds per frame (70,224 T-states)
@@ -389,36 +391,55 @@ class SpriteProcessor {
 }
 ```
 
-### 2. Memory Access Restriction Optimization
+### 2. Direct Memory Access (No Access Control Overhead)
 
-#### Fast Access Control
+#### Performance-First Memory Access
 
 ```typescript
 /**
- * Optimized PPU memory access control
+ * Direct memory access without PPU mode checking overhead
+ * Based on GameBoy Online's performance-first approach
  */
-class PPUMemoryControl {
-  private mode: PPUMode = PPUMode.HBLANK;
+class DirectMemoryAccess {
+  private vram = new Uint8Array(0x2000);
+  private oam = new Uint8Array(0xA0);
+  private wram = new Uint8Array(0x2000);
+  private hram = new Uint8Array(0x7F);
 
-  // Bit masks for fast access checking
-  private static readonly VRAM_BLOCKED_MODES = 1 << PPUMode.PIXEL_TRANSFER;
-  private static readonly OAM_BLOCKED_MODES =
-    (1 << PPUMode.OAM_SEARCH) | (1 << PPUMode.PIXEL_TRANSFER);
-
-  isVRAMAccessible(): boolean {
-    return (PPUMemoryControl.VRAM_BLOCKED_MODES & (1 << this.mode)) === 0;
-  }
-
-  isOAMAccessible(): boolean {
-    return (PPUMemoryControl.OAM_BLOCKED_MODES & (1 << this.mode)) === 0;
-  }
-
+  // Direct VRAM access for maximum performance
   readVRAM(address: u16): u8 {
-    // Single bit test instead of mode comparison
-    if (PPUMemoryControl.VRAM_BLOCKED_MODES & (1 << this.mode)) {
-      return 0xff; // Blocked access
-    }
     return this.vram[address - 0x8000];
+  }
+
+  writeVRAM(address: u16, value: u8): void {
+    this.vram[address - 0x8000] = value;
+  }
+
+  // Direct OAM access
+  readOAM(address: u16): u8 {
+    return this.oam[address - 0xFE00];
+  }
+
+  writeOAM(address: u16, value: u8): void {
+    this.oam[address - 0xFE00] = value;
+  }
+
+  // Direct memory access without any overhead
+  readMemory(address: u16): u8 {
+    // Optimized address decoding
+    if (address >= 0x8000 && address <= 0x9FFF) {
+      return this.vram[address - 0x8000];
+    }
+    if (address >= 0xC000 && address <= 0xDFFF) {
+      return this.wram[address - 0xC000];
+    }
+    if (address >= 0xFE00 && address <= 0xFE9F) {
+      return this.oam[address - 0xFE00];
+    }
+    if (address >= 0xFF80 && address <= 0xFFFE) {
+      return this.hram[address - 0xFF80];
+    }
+    return 0xFF;
   }
 }
 ```
@@ -557,15 +578,9 @@ class OptimizedGameBoySystem {
     }
   }
 
-  // High-frequency memory access optimization
+  // High-frequency memory access optimization (direct access)
   cpuRead(address: u16): u8 {
-    // Direct PPU access check without virtual dispatch
-    if (address >= 0x8000 && address <= 0x9fff) {
-      if (this.ppu.getCurrentMode() === PPUMode.PIXEL_TRANSFER) {
-        return 0xff;
-      }
-    }
-
+    // Direct memory access without PPU mode checking for performance
     return this.memory.readDirect(address);
   }
 }

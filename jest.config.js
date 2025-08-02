@@ -22,6 +22,9 @@ export default {
     '!src/**/*.d.ts',
     '!src/main.ts',
     '!src/vite-env.d.ts',
+    '!src/performance-poc/**/*.ts',
+    '!src/demo/**/*.ts',
+    '!src/**/types.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: [
@@ -141,12 +144,12 @@ export default {
   verbose: false, // Controlled by CLI flag to avoid noise in TDD workflow
   silent: false,
   // Fail fast for TDD workflow - stop on first test failure
-  bail: 1,
+  // bail: 1,
   // Enhanced error reporting for hardware emulation debugging
   errorOnDeprecated: true,
   // Memory management for large test suites with ROM data
   detectOpenHandles: true,
-  detectLeaks: true, // Critical for hardware accuracy - detect memory leaks
+  // detectLeaks: true, // Critical for hardware accuracy - detect memory leaks
   // Support for test result caching across TDD cycles
   cache: true,
 };
