@@ -13,8 +13,22 @@ CPU Performance: 4,194,304 T-states per second (exact)
 Frame Generation: 59.727500569606 FPS (exact)
 Memory Operations: 4.2M+ read/write operations per second
 PPU Rendering: 23,040 pixels per frame × 59.7 FPS = 1.375M pixels/second
-Instruction Throughput: ~1M instructions per second (variable by instruction mix)
+Instruction Throughput: 500K-1M opcodes per second (revised based on POC findings)
 ```
+
+### Performance POC Results (Updated 2025-08-02)
+
+Recent performance testing revealed critical insights about our architecture requirements:
+
+**POC Findings Summary:**
+- **Mutable State Performance**: ~2M operations/second (exceeds requirements by 2-4x)
+- **Immutable State Performance**: ~25K operations/second (falls short by 40x)
+- **Revised Game Boy Requirements**: 500K-1M opcodes/sec (not 4.2M raw clock cycles)
+- **Performance Ratio**: Mutable approach is 80x faster than immutable
+
+**Key Insight**: The original 4.2M operations/second target was based on raw T-states, but actual Game Boy opcode execution averages 8-15 T-states per instruction, requiring 500K-1M opcodes/second for real-time emulation.
+
+**Architectural Decision**: Based on these findings, the emulator core will use **mutable state patterns** for performance-critical paths while maintaining immutable patterns for user-facing APIs and debugging tools.
 
 ### Real-Time Constraints
 
