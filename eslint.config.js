@@ -16,6 +16,7 @@ export default tseslint.config(
       '*.config.js',
       '*.config.ts',
       'tests/resources/',
+      'tmp/',
     ],
   },
   eslint.configs.recommended,
