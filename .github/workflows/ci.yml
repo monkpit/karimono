@@ -4,11 +4,52 @@ on:
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - 'jest.config.js'
+      - 'vite.config.ts'
+      - '.github/workflows/**'
 
 jobs:
-  lint-and-format:
-    name: Lint and Format Check
+  # Shared setup job for dependency installation and caching
+  setup:
+    name: Setup Dependencies
     runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.cache-deps.outputs.cache-hit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-modules-
+
+      - name: Install dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: npm ci --no-audit
+
+  # Parallel validation jobs
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,6 +71,69 @@ jobs:
             ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
+        if: needs.setup.outputs.cache-hit != 'true'
+        run: npm ci --no-audit
+
+      - name: Run linting
+        run: npm run lint
+
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-modules-
+
+      - name: Install dependencies
+        if: needs.setup.outputs.cache-hit != 'true'
+        run: npm ci --no-audit
+
+      - name: Check code formatting
+        run: npm run format:check
+
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-modules-
+
+      - name: Install dependencies
+        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
       - name: Cache TypeScript build info
@@ -43,15 +147,10 @@ jobs:
       - name: Run TypeScript type checking
         run: npm run typecheck
 
-      - name: Check code formatting
-        run: npm run format:check
-
-      - name: Run linting
-        run: npm run lint
-
-  build-and-test:
-    name: Build and Test
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
+    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,6 +173,7 @@ jobs:
             ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
+        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
       - name: Cache Jest cache
@@ -93,12 +193,6 @@ jobs:
           key: ${{ runner.os }}-coverage-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts', 'jest.config.js') }}
           restore-keys: |
             ${{ runner.os }}-coverage-
-
-      - name: Cache build output
-        uses: actions/cache@v4
-        with:
-          path: dist
-          key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
       - name: Run tests with coverage
         run: npm test
@@ -121,15 +215,39 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Jest Coverage Report
-        uses: ArtiomTr/jest-coverage-report-action@v2
+  # Build job runs only after tests pass - prevents wasteful builds
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+    needs: [lint, format, typecheck, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          threshold: 70
-          working-directory: ./
-          test-script: npm test
-          annotations: all
-          package-manager: npm
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-modules-
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: Cache build output
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
       - name: Build project
         run: npm run build
