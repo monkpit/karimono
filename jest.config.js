@@ -132,6 +132,7 @@ export default {
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/tests/',
+    '/src/emulator/cpu/generated/.*\\.ts$',
     '\\.d\\.ts$',
     // Ignore generated files and constants that don't need coverage
     '/src/.*\\.constants\\.ts$',
@@ -139,7 +140,7 @@ export default {
   ],
   // Collect coverage from all source files for comprehensive reporting
   collectCoverage: true, // Always collect coverage for TDD workflow
-  coverageProvider: 'v8', // Faster and more accurate than babel
+  coverageProvider: 'babel', // More reliable for large files than v8
   // Support for debugging hardware timing and state
   verbose: false, // Controlled by CLI flag to avoid noise in TDD workflow
   silent: false,

@@ -44,8 +44,9 @@ export interface RunnableComponent extends EmulatorComponent {
 export interface CPUComponent extends RunnableComponent {
   /**
    * Execute a single CPU instruction
+   * @returns Number of cycles consumed by the instruction
    */
-  step(): void;
+  step(): number;
 
   /**
    * Get current program counter value
@@ -53,9 +54,122 @@ export interface CPUComponent extends RunnableComponent {
   getPC(): number;
 
   /**
-   * Get CPU register values
+   * Check if CPU is currently halted
+   */
+  isHalted(): boolean;
+
+  /**
+   * Trigger an interrupt (simplified for testing)
+   */
+  triggerInterrupt(address: number): void;
+  /**
+   * Get debug information about current CPU state
+   */
+  getDebugInfo(): string;
+
+  // Flag register access methods
+  /**
+   * Get zero flag state (bit 7 of F register)
+   */
+  getZeroFlag(): boolean;
+
+  /**
+   * Get subtract flag state (bit 6 of F register)
+   */
+  getSubtractFlag(): boolean;
+
+  /**
+   * Get half-carry flag state (bit 5 of F register)
+   */
+  getHalfCarryFlag(): boolean;
+
+  /**
+   * Get carry flag state (bit 4 of F register)
+   */
+  getCarryFlag(): boolean;
+}
+
+/**
+ * CPU testing interface - extends CPUComponent with testing-specific methods
+ * Used for test setup and verification without polluting production interface
+ */
+export interface CPUTestingComponent extends CPUComponent {
+  /**
+   * Get CPU register values (TEMPORARY - for refactor transition)
+   * TODO: Remove when all tests use proper boundary observation patterns
    */
   getRegisters(): CPURegisters;
+  // Register manipulation methods for testing
+  /**
+   * Set A register value (for test setup)
+   */
+  setRegisterA(value: number): void;
+
+  /**
+   * Set B register value (for test setup)
+   */
+  setRegisterB(value: number): void;
+
+  /**
+   * Set C register value (for test setup)
+   */
+  setRegisterC(value: number): void;
+
+  /**
+   * Set D register value (for test setup)
+   */
+  setRegisterD(value: number): void;
+
+  /**
+   * Set E register value (for test setup)
+   */
+  setRegisterE(value: number): void;
+
+  /**
+   * Set F register value (for test setup)
+   */
+  setRegisterF(value: number): void;
+
+  /**
+   * Set H register value (for test setup)
+   */
+  setRegisterH(value: number): void;
+
+  /**
+   * Set L register value (for test setup)
+   */
+  setRegisterL(value: number): void;
+
+  /**
+   * Set stack pointer value (for test setup)
+   */
+  setStackPointer(value: number): void;
+
+  /**
+   * Set program counter value (for test setup)
+   */
+  setProgramCounter(value: number): void;
+
+  // Flag manipulation methods for testing
+  /**
+   * Set zero flag state (for test setup)
+   */
+  setZeroFlag(state: boolean): void;
+
+  /**
+   * Set subtract flag state (for test setup)
+   */
+  setSubtractFlag(state: boolean): void;
+
+  /**
+   * Set half-carry flag state (for test setup)
+   */
+  setHalfCarryFlag(state: boolean): void;
+
+  /**
+   * Set carry flag state (for test setup)
+   */
+  setCarryFlag(state: boolean): void;
 }
 
 /**
@@ -171,6 +285,17 @@ export interface MMUComponent extends MemoryComponent {
    * Sets boot ROM disabled and initializes I/O registers to exact hardware values
    */
   setPostBootState(): void;
+
+  /**
+   * Set Serial Interface component for register delegation
+   */
+  setSerialInterface(_serialInterface: SerialInterfaceComponent): void;
+
+  /**
+   * Request an interrupt to be raised
+   * @param interrupt Interrupt bit (0-4: VBlank, LCDC, Timer, Serial, Joypad)
+   */
+  requestInterrupt(interrupt: number): void;
 }
 
 /**
@@ -309,6 +434,52 @@ export interface EmulatorState {
 }
 
 /**
+ * Serial Interface component for hardware-accurate Game Boy serial communication
+ */
+export interface SerialInterfaceComponent extends EmulatorComponent {
+  /**
+   * Read serial data register (SB - 0xFF01)
+   */
+  readSB(): number;
+
+  /**
+   * Write serial data register (SB - 0xFF01)
+   */
+  writeSB(value: number): void;
+
+  /**
+   * Read serial control register (SC - 0xFF02)
+   */
+  readSC(): number;
+
+  /**
+   * Write serial control register (SC - 0xFF02)
+   */
+  writeSC(value: number): void;
+
+  /**
+   * Check if serial transfer is currently active
+   */
+  isTransferActive(): boolean;
+
+  /**
+   * Process serial timing during CPU execution
+   * @param cpuCycles Number of CPU cycles to advance
+   */
+  step(cpuCycles: number): void;
+
+  /**
+   * Get captured serial output for test ROM validation
+   */
+  getOutputBuffer(): string;
+
+  /**
+   * Clear the serial output buffer
+   */
+  clearOutputBuffer(): void;
+}
+
+/**
  * Component dependency injection container
  * Manages creation order and inter-component references
  */
@@ -342,4 +513,9 @@ export interface ComponentContainer {
    * Get Cartridge component instance (undefined until implemented)
    */
   getCartridge(): CartridgeComponent | undefined;
+
+  /**
+   * Get Serial Interface component instance (undefined until implemented)
+   */
+  getSerialInterface(): SerialInterfaceComponent | undefined;
 }

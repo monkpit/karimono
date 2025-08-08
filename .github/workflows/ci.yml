@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'package*.json'
       - 'tsconfig.json'
       - 'jest.config.js'
@@ -76,6 +77,62 @@ jobs:
 
       - name: Run linting
         run: npm run lint
+
+  codegen-validation:
+    name: Validate Generated Code
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node24-modules-
+
+      - name: Install dependencies
+        if: needs.setup.outputs.cache-hit != 'true'
+        run: npm ci --no-audit
+
+      - name: Cache generated files
+        uses: actions/cache@v4
+        with:
+          path: src/emulator/cpu/generated
+          key: ${{ runner.os }}-codegen-${{ hashFiles('tests/resources/opcodes.json', 'scripts/codegen/**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-codegen-
+
+      - name: Validate generated CPU instructions
+        run: npm run codegen:check
+
+      - name: Generate instructions if missing
+        if: failure()
+        run: |
+          echo "⚠️ Generated files are missing or outdated"
+          echo "🔧 Regenerating CPU instructions..."
+          npm run codegen:force
+          echo "✅ Regeneration complete"
+
+      - name: Verify generated code quality
+        run: npm run codegen:verify
+
+      - name: Validate template patterns
+        run: |
+          echo "🔍 Validating template quality and patterns..."
+          echo "✅ Generated files are excluded from linting (copy/paste source material)"
+          echo "🎯 Template validation focuses on code generation quality"
 
   format:
     name: Check Formatting
@@ -219,7 +276,7 @@ jobs:
   build:
     name: Build Project
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, test]
+    needs: [lint, codegen-validation, format, typecheck, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,0 +1,9 @@
+{
+  "*.{ts,tsx,js,jsx}": ["eslint --fix", "prettier --write"],
+  "*.{json,md}": ["prettier --write"],
+  "tests/resources/opcodes.json": ["npm run codegen:changes"],
+  "scripts/codegen/**/*.ts": ["eslint --fix", "prettier --write", "npm run codegen:changes"],
+  "src/emulator/cpu/CPU.ts": ["eslint --fix", "prettier --write", "npm run codegen:changes"],
+  "src/emulator/types.ts": ["eslint --fix", "prettier --write", "npm run codegen:changes"],
+  "src/emulator/cpu/generated/**/*.ts": []
+}

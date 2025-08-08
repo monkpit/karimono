@@ -17,6 +17,10 @@ export default tseslint.config(
       '*.config.ts',
       'tests/resources/',
       'tmp/',
+      // Generated CPU instruction files - these are copy/paste source material
+      'src/emulator/cpu/generated/**/*.ts',
+      '!src/emulator/cpu/generated/index.ts',
+      '!src/emulator/cpu/generated/CPUIntegrationGuide.ts',
     ],
   },
   eslint.configs.recommended,
@@ -81,6 +85,16 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       'no-console': 'off',
       'no-unused-vars': 'off',
+    },
+  },
+  {
+    files: ['scripts/codegen/**/*.ts'],
+    rules: {
+      'no-console': 'off', // Allow console statements in codegen scripts
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   }
 );

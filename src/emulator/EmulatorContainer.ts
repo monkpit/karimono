@@ -8,6 +8,8 @@
 
 import { EmulatorDisplay } from './display/EmulatorDisplay';
 import { MMU } from './mmu/MMU';
+import { SerialInterface } from './mmu/SerialInterface';
+import { CPU } from './cpu/CPU';
 import type {
   ComponentContainer,
   CPUComponent,
@@ -17,6 +19,7 @@ import type {
   DMAComponent,
   CartridgeComponent,
   DisplayComponent,
+  SerialInterfaceComponent,
   EmulatorContainerConfig,
   EmulatorState,
   RunnableComponent,
@@ -28,12 +31,13 @@ import type {
 export class EmulatorContainer implements RunnableComponent, ComponentContainer {
   // Component instances (private for encapsulation)
   private displayComponent!: EmulatorDisplay; // Definite assignment assertion - initialized in constructor
-  private cpuComponent: CPUComponent | undefined;
+  private cpuComponent!: CPUComponent; // Definite assignment assertion - initialized in constructor
   private ppuComponent: PPUComponent | undefined;
   private memoryComponent: MemoryComponent | undefined;
   private mmuComponent: MMUComponent | undefined;
   private dmaComponent: DMAComponent | undefined;
   private cartridgeComponent: CartridgeComponent | undefined;
+  private serialInterfaceComponent: SerialInterfaceComponent | undefined;
 
   // Mutable state for performance (following performance POC findings)
   private state: EmulatorState;
@@ -70,14 +74,25 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     // 1. Initialize Display component first (no dependencies)
     this.displayComponent = new EmulatorDisplay(parentElement, this.config.display);
 
-    // 2. Initialize MMU component (no dependencies, needed by CPU)
+    // 2. Initialize MMU component first (needed for interrupt requests)
     this.mmuComponent = new MMU();
 
-    // 3. Set MMU to post-boot state (implements ADR-001)
+    // 3. Initialize Serial Interface component with interrupt callback
+    this.serialInterfaceComponent = new SerialInterface(
+      this.config.debug,
+      (interrupt: number) => this.mmuComponent?.requestInterrupt(interrupt)
+    );
+
+    // 4. Wire Serial Interface to MMU for register delegation
+    this.mmuComponent.setSerialInterface(this.serialInterfaceComponent);
+
+    // 5. Set MMU to post-boot state (implements ADR-001)
     this.mmuComponent.setPostBootState();
 
+    // 6. Initialize CPU component with MMU dependency
+    this.cpuComponent = new CPU(this.mmuComponent);
+
     // Other components remain undefined until implemented
-    this.cpuComponent = undefined;
     this.ppuComponent = undefined;
     this.memoryComponent = undefined;
     this.dmaComponent = undefined;
@@ -125,6 +140,7 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     // Reset all components
     this.resetDisplayComponent();
     this.mmuComponent?.reset();
+    this.serialInterfaceComponent?.reset();
     this.cpuComponent?.reset();
     this.ppuComponent?.reset();
     this.memoryComponent?.reset();
@@ -155,9 +171,9 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   }
 
   /**
-   * Get CPU component instance (undefined until implemented)
+   * Get CPU component instance
    */
-  public getCPU(): CPUComponent | undefined {
+  public getCPU(): CPUComponent {
     return this.cpuComponent;
   }
 
@@ -200,6 +216,13 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   }
 
   /**
+   * Get Serial Interface component instance
+   */
+  public getSerialInterface(): SerialInterfaceComponent | undefined {
+    return this.serialInterfaceComponent;
+  }
+
+  /**
    * Get current emulator state (read-only snapshot)
    */
   public getState(): Readonly<EmulatorState> {
@@ -223,13 +246,26 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
 
   /**
    * Execute single emulation step (for manual stepping/debugging)
+   * @returns Number of CPU cycles executed
    */
-  public step(): void {
+  public step(): number {
     if (!this.state.running) {
-      return;
+      return 0;
     }
 
-    this.state.cycleCount++;
+    // Execute CPU instruction and get cycles consumed
+    const cycles = this.cpuComponent.step();
+
+    // Update system cycle count
+    this.state.cycleCount += cycles;
+
+    // Update Serial Interface with cycles for timing-based operations
+    if (this.serialInterfaceComponent) {
+      // Pass CPU cycles to Serial Interface for hardware-accurate timing
+      this.serialInterfaceComponent.step(cycles);
+    }
+
+    return cycles;
   }
 
   /**

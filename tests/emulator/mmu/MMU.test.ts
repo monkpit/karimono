@@ -887,3 +887,103 @@ function createMockCartridge(romData: Uint8Array): jest.Mocked<MockCartridgeComp
 
   return mockCartridge;
 }
+
+// Additional tests for coverage of cartridge-related branches
+describe('MMU Cartridge Branch Coverage', () => {
+  let mmu: MMUComponent;
+
+  beforeEach(() => {
+    mmu = new MMU();
+  });
+
+  afterEach(() => {
+    mmu.reset();
+  });
+
+  describe('ROM Region Access Without Cartridge', () => {
+    it('should return 0xFF for ROM reads when cartridge load was attempted but no cartridge provided', () => {
+      // Test branch: cartridgeLoadAttempted = true but cartridge = undefined
+      // First attempt to load a cartridge but pass undefined
+      try {
+        mmu.loadCartridge(undefined as any);
+      } catch {
+        // Loading undefined cartridge may throw - that's fine
+      }
+
+      // Now reading ROM region should return 0xFF because cartridge load was attempted
+      expect(mmu.readByte(0x0000)).toBe(0xff);
+      expect(mmu.readByte(0x4000)).toBe(0xff);
+      expect(mmu.readByte(0x7fff)).toBe(0xff);
+    });
+
+    it('should fall through to memory for ROM reads when no cartridge load was attempted', () => {
+      // Test branch: cartridgeLoadAttempted = false and cartridge = undefined
+      // This should fall through to reading from memory array
+
+      // First write some data directly to memory via writeByte
+      mmu.writeByte(0xc000, 0x42); // Write to WRAM which is definitely accessible
+
+      // Reading from ROM region should fall through to memory since no cartridge load was attempted
+      const value1 = mmu.readByte(0x0000);
+      const value2 = mmu.readByte(0x4000);
+
+      // Values depend on internal memory state, should be numbers (likely 0x00)
+      expect(typeof value1).toBe('number');
+      expect(typeof value2).toBe('number');
+      expect(value1).not.toBe(0xff); // Should not return cartridge-not-found value
+      expect(value2).not.toBe(0xff);
+    });
+  });
+
+  describe('External RAM Access Without Cartridge', () => {
+    it('should return 0xFF for external RAM reads when no cartridge is loaded', () => {
+      // Test branch: cartridge = undefined in external RAM region
+      expect(mmu.readByte(0xa000)).toBe(0xff);
+      expect(mmu.readByte(0xb000)).toBe(0xff);
+      expect(mmu.readByte(0xbfff)).toBe(0xff);
+    });
+
+    it('should ignore external RAM writes when no cartridge is loaded', () => {
+      // Test branch: cartridge = undefined in writeByte for external RAM
+      // Should not throw, should just ignore the write
+      expect(() => {
+        mmu.writeByte(0xa000, 0x42);
+        mmu.writeByte(0xb000, 0x84);
+        mmu.writeByte(0xbfff, 0xff);
+      }).not.toThrow();
+
+      // Reads should still return 0xFF since no cartridge RAM exists
+      expect(mmu.readByte(0xa000)).toBe(0xff);
+      expect(mmu.readByte(0xb000)).toBe(0xff);
+      expect(mmu.readByte(0xbfff)).toBe(0xff);
+    });
+  });
+
+  describe('MBC Register Writes Without Cartridge', () => {
+    it('should ignore MBC register writes to ROM region when no cartridge is loaded', () => {
+      // Test branch: cartridge = undefined in writeByte for ROM region (MBC registers)
+      // Should not throw, should just ignore MBC register writes
+      expect(() => {
+        mmu.writeByte(0x0000, 0x0a); // RAM enable
+        mmu.writeByte(0x2000, 0x01); // ROM bank select
+        mmu.writeByte(0x4000, 0x02); // RAM bank select
+        mmu.writeByte(0x6000, 0x01); // Banking mode
+      }).not.toThrow();
+    });
+  });
+
+  describe('Post-Boot State I/O Register Initialization', () => {
+    it('should initialize post-boot I/O registers when setPostBootState is called', () => {
+      // This tests the initializePostBootIORegisters() branch
+      mmu.setPostBootState();
+
+      // Reset should now use post-boot I/O register initialization
+      mmu.reset();
+
+      // Verify some expected post-boot I/O register states
+      // (exact values depend on initializePostBootIORegisters implementation)
+      const snapshot = mmu.getSnapshot();
+      expect(snapshot.bootROMEnabled).toBe(false); // Post-boot state keeps boot ROM disabled
+    });
+  });
+});

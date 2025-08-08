@@ -4,7 +4,7 @@
  * Following TDD principles - minimal implementation to pass failing tests.
  */
 
-import { MMUComponent, MMUSnapshot, CartridgeComponent } from '../types';
+import { MMUComponent, MMUSnapshot, CartridgeComponent, SerialInterfaceComponent } from '../types';
 
 /**
  * MMU Component Implementation
@@ -19,6 +19,7 @@ export class MMU implements MMUComponent {
   private cartridgeLoadAttempted = false; // Track if loadCartridge() has been called
   private ioRegisters = new Map<number, number>(); // I/O register storage
   private postBootStateSet = false; // Track if setPostBootState has been called
+  private serialInterface: SerialInterfaceComponent | undefined; // Serial Interface component
 
   // Banking state tracking (updated via MBC register writes)
   private currentROMBank = 1; // Default ROM bank for switchable region
@@ -60,6 +61,8 @@ export class MMU implements MMUComponent {
       this.ioRegisters.set(0xff50, 0x00); // Boot ROM control register
       this.ioRegisters.set(0xff01, 0x00); // Serial data register
       this.ioRegisters.set(0xff02, 0x00); // Serial control register
+      this.ioRegisters.set(0xff0f, 0x00); // IF register
+      this.writeByte(0xffff, 0x00); // IE register
     }
   }
 
@@ -95,6 +98,14 @@ export class MMU implements MMUComponent {
 
     // I/O Registers (0xFF00-0xFF7F)
     if (address >= 0xff00 && address <= 0xff7f) {
+      // Delegate serial registers to Serial Interface component
+      if (address === 0xff01 && this.serialInterface) {
+        return this.serialInterface.readSB();
+      }
+      if (address === 0xff02 && this.serialInterface) {
+        return this.serialInterface.readSC();
+      }
+
       return this.ioRegisters.get(address) ?? 0xff; // Undefined registers return 0xFF
     }
 
@@ -142,6 +153,16 @@ export class MMU implements MMUComponent {
 
     // I/O Registers (0xFF00-0xFF7F)
     if (address >= 0xff00 && address <= 0xff7f) {
+      // Delegate serial registers to Serial Interface component
+      if (address === 0xff01 && this.serialInterface) {
+        this.serialInterface.writeSB(value);
+        return;
+      }
+      if (address === 0xff02 && this.serialInterface) {
+        this.serialInterface.writeSC(value);
+        return;
+      }
+
       // Boot ROM disable register (0xFF50) - special handling
       if (address === 0xff50) {
         this.ioRegisters.set(address, value);
@@ -176,6 +197,13 @@ export class MMU implements MMUComponent {
     this.memory[address] = value;
   }
 
+  public requestInterrupt(interrupt: number): void {
+    const ifAddress = 0xff0f;
+    let ifRegister = this.readByte(ifAddress);
+    ifRegister |= 1 << interrupt;
+    this.writeByte(ifAddress, ifRegister);
+  }
+
   readWord(address: number): number {
     // Little-endian: low byte first, then high byte
     address = address & 0xffff;
@@ -201,6 +229,10 @@ export class MMU implements MMUComponent {
     // Load cartridge for ROM and RAM access
     this.cartridge = cartridge;
     this.cartridgeLoadAttempted = true;
+  }
+
+  setSerialInterface(serialInterface: SerialInterfaceComponent): void {
+    this.serialInterface = serialInterface;
   }
 
   getSnapshot(): MMUSnapshot {
@@ -247,9 +279,21 @@ export class MMU implements MMUComponent {
   private isDefinedIORegister(address: number): boolean {
     // Expand list of defined I/O registers for post-boot state support
     const definedRegisters = new Set([
+      // Joypad
+      0xff00, // Joypad register
+
+      // Interrupt Flag
+      0xff0f, // IF register
+
       // Serial port
       0xff01, // Serial port data
       0xff02, // Serial port control
+
+      // Timer and Divider
+      0xff04, // Divider register
+      0xff05, // Timer counter
+      0xff06, // Timer modulo
+      0xff07, // Timer control
 
       // PPU/LCD system
       0xff40, // LCDC - LCD Control
@@ -287,6 +331,9 @@ export class MMU implements MMUComponent {
 
       // Boot ROM control
       0xff50, // Boot ROM control
+
+      // Include the last I/O register address to support the full range
+      0xff7f, // Last I/O register
     ]);
 
     return definedRegisters.has(address);
@@ -362,5 +409,9 @@ export class MMU implements MMUComponent {
 
     // Boot ROM control (shows disabled state)
     this.ioRegisters.set(0xff50, 0x01); // Boot ROM disabled
+
+    // Interrupt registers
+    this.ioRegisters.set(0xff0f, 0xe1); // IF register (top 3 bits are 1)
+    this.writeByte(0xffff, 0x00); // IE register
   }
 }
