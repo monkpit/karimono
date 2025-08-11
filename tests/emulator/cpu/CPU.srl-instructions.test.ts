@@ -332,12 +332,12 @@ describe('CPU SRL Instructions', () => {
         { value: 0xff, expected: 0x7f, carry: true, zero: false },
         { value: 0x7e, expected: 0x3f, carry: false, zero: false },
       ];
-      
+
       for (const testCase of testCases) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(testCase.value);
         cpu.setRegisterF(0b01100000); // Set N=1, H=1 initially
 
@@ -356,12 +356,12 @@ describe('CPU SRL Instructions', () => {
 
     it('should always clear bit 7 for all values (logical shift)', () => {
       const testValues = [0x80, 0x81, 0x82, 0xfe, 0xff, 0x01, 0x7f];
-      
+
       for (const value of testValues) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
 
         mmu.writeByte(0x0100, 0xcb);
@@ -377,12 +377,12 @@ describe('CPU SRL Instructions', () => {
     it('should handle carry flag correctly for odd/even values', () => {
       const oddValues = [0x01, 0x03, 0x81, 0xff]; // Bit 0 = 1
       const evenValues = [0x00, 0x02, 0x80, 0xfe]; // Bit 0 = 0
-      
+
       // Test odd values (should set carry)
       for (const value of oddValues) {
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
         mmu.writeByte(0x0100, 0xcb);
         mmu.writeByte(0x0101, 0x3f);
@@ -395,7 +395,7 @@ describe('CPU SRL Instructions', () => {
       for (const value of evenValues) {
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
         mmu.writeByte(0x0100, 0xcb);
         mmu.writeByte(0x0101, 0x3f);

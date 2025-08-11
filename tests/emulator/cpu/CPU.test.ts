@@ -733,19 +733,24 @@ describe('SM83 CPU Component', () => {
       // Execute first instruction: LD B,n8
       cpu.step();
 
-      // Verify: CPU should read opcode at PC, then immediate at PC+1
+      // Verify: CPU should read interrupt registers, then opcode, then immediate
+      // Hardware behavior: CPU checks interrupts on every step
+      expect(readSpy).toHaveBeenCalledWith(0xffff); // IE register check
+      expect(readSpy).toHaveBeenCalledWith(0xff0f); // IF register check
       expect(readSpy).toHaveBeenCalledWith(0x0100); // Opcode fetch
       expect(readSpy).toHaveBeenCalledWith(0x0101); // Immediate fetch
-      expect(readSpy).toHaveBeenCalledTimes(2);
+      expect(readSpy).toHaveBeenCalledTimes(4); // Total: interrupt check + instruction
 
       readSpy.mockClear();
 
       // Execute second instruction: ADD A,B
       cpu.step();
 
-      // Verify: CPU should only read opcode (no immediate)
+      // Verify: CPU should read interrupt registers, then opcode only
+      expect(readSpy).toHaveBeenCalledWith(0xffff); // IE register check
+      expect(readSpy).toHaveBeenCalledWith(0xff0f); // IF register check
       expect(readSpy).toHaveBeenCalledWith(0x0102); // Opcode fetch only
-      expect(readSpy).toHaveBeenCalledTimes(1);
+      expect(readSpy).toHaveBeenCalledTimes(3); // Total: interrupt check + instruction
     });
 
     it('should maintain correct timing across multi-instruction sequences', () => {

@@ -1,32 +1,76 @@
-# Blargg Test ROM Serial Integration Specification
+# Definitive Blargg Test ROM Serial Interface Specification
 
-## Component: Serial Interface for Blargg Test ROM Integration
-**Purpose**: Hardware-accurate Game Boy DMG serial communication with automated Blargg test ROM execution
-**Timing**: 8192 Hz internal clock, 4096 CPU cycles per transfer
-**Priority**: High - Validates CPU instruction accuracy against hardware test ROMs
+**Document Purpose**: To provide a clear, definitive specification for the Game Boy DMG's serial interface, resolving conflicts between strict hardware accuracy and the behavior required to pass Blargg's test ROM suite. This document supersedes previous specifications.
 
-## 1. Serial Communication Hardware Behavior
+**Product Owner**: Karimono-v2 PO
+**Date**: 2025-08-09
+**Status**: **Approved. Ready for Implementation.**
 
-### Register Specifications
+## 1. Problem Statement & Analysis
+
+The current emulator's `SerialInterface` is hardware-accurate, particularly regarding the external clock. On real hardware, a transfer initiated with an external clock (SC bit 0 = 0) will not complete without an external clock signal.
+
+However, Blargg's test ROMs, such as `04-op r,imm`, were designed for automated testing and assume a serial transfer will always complete, even if an external clock is not present. The test ROM code writes `0x81` to the SC register (0xFF02), which correctly starts a transfer using the *internal* clock. After the transfer, the test code waits for a serial interrupt by polling the IF register (0xFF0F).
+
+**The core conflict**: Our hardware-accurate implementation correctly stalls when no external clock is provided (if SC bit 0 were 0), but Blargg's tests require a transfer completion interrupt to proceed, which is currently timing out. The `04-op r,imm` test specifically gets stuck waiting for this interrupt after successfully outputting its name.
+
+**Blargg Assembly Pattern (`std_print`):**
+```assembly
+std_print:
+    push af
+    sta  SB            ; Write character to Serial Buffer (0xFF01)
+    wreg SC,$81        ; Write 0x81 to Serial Control - INTERNAL CLOCK + START
+    delay 2304         ; Wait exactly 2304 cycles (Blargg-specific timing)
+    pop  af
+    jp   console_print
+```
+
+**Key Insight**: Blargg tests use `SC=$81`, which is **internal clock mode** (bit 0 = 1). The issue is NOT external vs internal clock mode - our implementation should complete these transfers. The bug is in our interrupt generation timing.
+
+## 2. Serial Interface Hardware Specification
+
+### Component: Serial Interface (0xFF01-0xFF02)
+**Purpose**: Hardware-accurate Game Boy DMG serial communication with proper interrupt generation
+**Timing**: Internal clock operates at 8192 Hz (512 CPU cycles per bit, 4096 cycles per byte)
+
+### Register Behavior
 
 **Serial Data Register (SB - 0xFF01)**:
-- Holds byte to be transmitted during transfer
-- During transfer, outgoing bits shift out MSB first
-- Incoming bits shift in LSB first (reads as 1 for disconnected link)
+- Holds byte to be transmitted/received
+- During transfer: outgoing bits shift out MSB first, incoming bits shift in LSB first
+- Disconnected cable behavior: incoming bits read as 1 (0xFF shifted in)
 - Default value: 0x00
 
 **Serial Control Register (SC - 0xFF02)**:
-- Bit 7: Transfer Start/Busy (1 = start transfer, 0 = transfer complete)
-- Bit 1: Clock Speed (DMG: unused, always 0)  
-- Bit 0: Clock Select (1 = internal 8192Hz, 0 = external clock)
-- Writing 0x81 initiates internal clock transfer
+- **Bit 7: Transfer Start/Busy** (1 = active transfer, 0 = idle/complete)
+- **Bit 1: Clock Speed** (DMG: unused, always 0)
+- **Bit 0: Clock Select** (1 = internal 8192Hz, 0 = external clock)
+- Writing with bit 7 set initiates transfer
+- Hardware automatically clears bit 7 when transfer completes
 - Default value: 0x00
 
-### Transfer Process Timing
-- Internal clock: 8192 Hz (4096 CPU cycles at 4.194304 MHz)
-- Transfer duration: 8 bits × 4096 cycles = 32768 CPU cycles total
-- Generates serial interrupt (bit 3) when transfer completes
-- Disconnected cable: all input bits read as 1 (0xFF shifted in)
+### Transfer Completion Process
+
+1. **Transfer Initiation**: CPU writes to SC with bit 7 = 1
+2. **Clock Selection**: 
+   - Bit 0 = 1: Use internal 8192Hz clock → **Transfer will complete after 4096 cycles**
+   - Bit 0 = 0: Use external clock → **Transfer may never complete without external device**
+3. **Transfer Progress**: 8 bits transferred (MSB first) over selected clock
+4. **Transfer Completion**:
+   - Clear SC bit 7 (busy flag)
+   - Set IF bit 3 (serial interrupt flag) 
+   - SB contains received data (0xFF for disconnected cable)
+
+### Critical Timing Specification
+
+**Internal Clock Transfers** (SC bit 0 = 1):
+- **Transfer Duration**: 4096 CPU cycles (512 cycles per bit × 8 bits)
+- **Interrupt Generation**: Occurs immediately after transfer completion
+- **Blargg Compatibility**: Tests expect interrupt flag set after 2304 cycles delay + transfer time
+
+**External Clock Transfers** (SC bit 0 = 0):
+- **Real Hardware**: Transfer never completes without external clock signal
+- **Test Environment**: Should timeout/stall (hardware-accurate behavior)
 
 ## 2. Serial Interface Component Architecture
 

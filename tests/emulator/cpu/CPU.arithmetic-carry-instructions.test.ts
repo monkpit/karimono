@@ -310,7 +310,7 @@ describe('SM83 CPU Arithmetic with Carry Instructions (Phase 2A)', () => {
         cpu.step();
 
         expect(cpu.getRegisters().a).toBe(0x2f); // 0x50 - 0x20 - 1 = 0x2F
-        validateFlags(cpu, false, true, false, false);
+        validateFlags(cpu, false, true, true, false); // H flag should be true: (0 - 0 - 1) < 0, RGBDS-compliant
       });
 
       test('handles underflow with borrow', () => {
@@ -364,7 +364,7 @@ describe('SM83 CPU Arithmetic with Carry Instructions (Phase 2A)', () => {
 
           expect(cycles).toBe(4);
           expect(cpu.getRegisters().a).toBe(0x3b); // 0x60 - 0x25 = 0x3B
-          validateFlags(cpu, false, true, false, false); // Only subtract flag set
+          validateFlags(cpu, false, true, true, false); // H flag set: (0 - 5 - 0) < 0, RGBDS-compliant
         });
       });
     });
@@ -512,7 +512,7 @@ describe('SM83 CPU Arithmetic with Carry Instructions (Phase 2A)', () => {
           a: 0x10,
           operand: 0x01,
           carry: false,
-          expected: { result: 0x0f, z: false, n: true, h: false, c: false },
+          expected: { result: 0x0f, z: false, n: true, h: true, c: false }, // H=true: (0-1-0) < 0, RGBDS-compliant
         },
         {
           a: 0x00,

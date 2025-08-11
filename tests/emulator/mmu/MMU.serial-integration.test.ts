@@ -62,7 +62,7 @@ describe('MMU Serial Interface Integration', () => {
       expect(serialInterface.isTransferActive()).toBe(true);
 
       // Complete transfer
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       // Verify transfer completed
       expect(serialInterface.isTransferActive()).toBe(false);
@@ -75,7 +75,7 @@ describe('MMU Serial Interface Integration', () => {
       for (let i = 0; i < testString.length; i++) {
         mmu.writeByte(0xff01, testString.charCodeAt(i));
         mmu.writeByte(0xff02, 0x81);
-        serialInterface.step(32768); // Complete transfer
+        serialInterface.step(4096); // Complete transfer
       }
 
       expect(serialInterface.getOutputBuffer()).toBe(testString);
@@ -116,7 +116,7 @@ describe('MMU Serial Interface Integration', () => {
       // Setup serial interface state
       mmu.writeByte(0xff01, 0x42);
       mmu.writeByte(0xff02, 0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       expect(serialInterface.getOutputBuffer().length).toBeGreaterThan(0);
 

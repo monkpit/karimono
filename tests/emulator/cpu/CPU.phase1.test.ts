@@ -875,7 +875,7 @@ describe('CPU Phase 1 Instructions', () => {
       expect(cpu.getRegisters().a).toBe(0x0f);
       expect(cpu.getZeroFlag()).toBe(false); // Z = 0 (result not zero)
       expect(cpu.getSubtractFlag()).toBe(true); // N = 1 (subtraction)
-      expect(cpu.getHalfCarryFlag()).toBe(false); // H = 0 (no borrow from bit 4: upper nibble 0x20 > 0x10)
+      expect(cpu.getHalfCarryFlag()).toBe(true); // H = 1 (borrow from bit 4: (0 - 0 - 1) < 0, RGBDS-compliant)
       expect(cpu.getCarryFlag()).toBe(false); // C = 0 (no borrow)
       expect(cycles).toBe(4);
       expect(cpu.getPC()).toBe(0x8001);
@@ -917,7 +917,7 @@ describe('CPU Phase 1 Instructions', () => {
       expect(cpu.getRegisters().a).toBe(0x2a);
       expect(cpu.getZeroFlag()).toBe(false); // Z = 0 (result not zero)
       expect(cpu.getSubtractFlag()).toBe(true); // N = 1 (subtraction)
-      expect(cpu.getHalfCarryFlag()).toBe(false); // H = 0 (no borrow from bit 4: upper nibble 0x50 > 0x20)
+      expect(cpu.getHalfCarryFlag()).toBe(true); // H = 1 (borrow from bit 4: (0 - 5 - 1) < 0, RGBDS-compliant)
       expect(cpu.getCarryFlag()).toBe(false); // C = 0 (no borrow)
       expect(cycles).toBe(4);
       expect(cpu.getPC()).toBe(0x8001);
@@ -980,7 +980,7 @@ describe('CPU Phase 1 Instructions', () => {
       expect(cpu.getRegisters().a).toBe(0x00);
       expect(cpu.getZeroFlag()).toBe(true); // Z = 1 (result is zero)
       expect(cpu.getSubtractFlag()).toBe(true); // N = 1 (subtraction)
-      expect(cpu.getHalfCarryFlag()).toBe(false); // H = 0 (no borrow from bit 4: upper nibble 0x10 > 0x00)
+      expect(cpu.getHalfCarryFlag()).toBe(true); // H = 1 (borrow from bit 4: (0 - 15 - 1) < 0, RGBDS-compliant)
       expect(cpu.getCarryFlag()).toBe(false); // C = 0 (no borrow)
       expect(cycles).toBe(4);
       expect(cpu.getPC()).toBe(0x8001);

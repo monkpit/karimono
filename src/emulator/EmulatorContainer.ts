@@ -9,6 +9,7 @@
 import { EmulatorDisplay } from './display/EmulatorDisplay';
 import { MMU } from './mmu/MMU';
 import { SerialInterface } from './mmu/SerialInterface';
+import { Timer } from './mmu/Timer';
 import { CPU } from './cpu/CPU';
 import type {
   ComponentContainer,
@@ -20,6 +21,7 @@ import type {
   CartridgeComponent,
   DisplayComponent,
   SerialInterfaceComponent,
+  TimerComponent,
   EmulatorContainerConfig,
   EmulatorState,
   RunnableComponent,
@@ -38,6 +40,7 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   private dmaComponent: DMAComponent | undefined;
   private cartridgeComponent: CartridgeComponent | undefined;
   private serialInterfaceComponent: SerialInterfaceComponent | undefined;
+  private timerComponent: TimerComponent | undefined;
 
   // Mutable state for performance (following performance POC findings)
   private state: EmulatorState;
@@ -78,18 +81,23 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     this.mmuComponent = new MMU();
 
     // 3. Initialize Serial Interface component with interrupt callback
-    this.serialInterfaceComponent = new SerialInterface(
-      this.config.debug,
-      (interrupt: number) => this.mmuComponent?.requestInterrupt(interrupt)
+    this.serialInterfaceComponent = new SerialInterface(this.config.debug, (interrupt: number) =>
+      this.mmuComponent?.requestInterrupt(interrupt)
     );
 
-    // 4. Wire Serial Interface to MMU for register delegation
-    this.mmuComponent.setSerialInterface(this.serialInterfaceComponent);
+    // 4. Initialize Timer component with interrupt callback
+    this.timerComponent = new Timer((interrupt: number) =>
+      this.mmuComponent?.requestInterrupt(interrupt)
+    );
 
-    // 5. Set MMU to post-boot state (implements ADR-001)
+    // 5. Wire Serial Interface and Timer to MMU for register delegation
+    this.mmuComponent.setSerialInterface(this.serialInterfaceComponent);
+    this.mmuComponent.setTimer(this.timerComponent);
+
+    // 6. Set MMU to post-boot state (implements ADR-001)
     this.mmuComponent.setPostBootState();
 
-    // 6. Initialize CPU component with MMU dependency
+    // 7. Initialize CPU component with MMU dependency
     this.cpuComponent = new CPU(this.mmuComponent);
 
     // Other components remain undefined until implemented
@@ -141,6 +149,7 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     this.resetDisplayComponent();
     this.mmuComponent?.reset();
     this.serialInterfaceComponent?.reset();
+    this.timerComponent?.reset();
     this.cpuComponent?.reset();
     this.ppuComponent?.reset();
     this.memoryComponent?.reset();
@@ -223,6 +232,13 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   }
 
   /**
+   * Get Timer component instance
+   */
+  public getTimer(): TimerComponent | undefined {
+    return this.timerComponent;
+  }
+
+  /**
    * Get current emulator state (read-only snapshot)
    */
   public getState(): Readonly<EmulatorState> {
@@ -263,6 +279,12 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     if (this.serialInterfaceComponent) {
       // Pass CPU cycles to Serial Interface for hardware-accurate timing
       this.serialInterfaceComponent.step(cycles);
+    }
+
+    // Update Timer with cycles for hardware-accurate timing
+    if (this.timerComponent) {
+      // Pass CPU cycles to Timer for DIV and TIMA updates
+      this.timerComponent.step(cycles);
     }
 
     return cycles;

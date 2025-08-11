@@ -12,8 +12,6 @@ Karimono-v2 is a Node.js/Vite webapp implementing a Game Boy DMG emulator. The p
 
 **ROUTING REQUIREMENT**: When receiving any task, you MUST route it to the appropriate specialized agent using the Task tool. Do NOT attempt to complete tasks directly unless specifically asked to use the general agent.
 
-**GEMINI MCP INTEGRATION**: All agents MUST use the Gemini MCP (`mcp__gemini-cli__ask-gemini`) for ALL generative tasks including code implementation, documentation creation, and technical writing. Agents act as specialized prompt engineers, preserving their expertise while delegating actual generation to Gemini. On Gemini MCP failure, fallback to standard Claude workflow.
-
 ### Agent Routing Guide
 
 - **Frontend/UI work** → Frontend Vite Engineer
@@ -25,38 +23,6 @@ Karimono-v2 is a Node.js/Vite webapp implementing a Game Boy DMG emulator. The p
 - **Hardware research/specs** → Product Owner
 - **Documentation work** → Documentation Specialist
 
-### Gemini MCP Agent Prompt Guidelines
-
-**All agents MUST structure their Gemini MCP prompts as follows:**
-
-**Template Structure:**
-```
-I am the [Agent Role] with [key expertise/background]. 
-
-[Task description and requirements]
-
-Reference files: @filename.ts @other-relevant-file.ts
-
-[Specific technical requirements, standards, or constraints]
-```
-
-**Role Preservation Examples:**
-- "I am the Backend TypeScript Engineer with embedded programming expertise specializing in Game Boy DMG emulation..."
-- "I am the Frontend Vite Engineer with strong OOP principles and pragmatic functional programming experience..."
-- "I am the Test Engineer specializing in TDD workflow enforcement and hardware-accurate testing..."
-
-**File Reference with @ Syntax:**
-- Use `@filename.ts` to include specific files in Gemini's context
-- Reference relevant existing patterns: `@src/emulator/cpu/CPU.ts`
-- Include test files for context: `@tests/example.test.ts`
-- Multiple files: `@file1.ts @file2.ts @directory/file3.ts`
-
-**Technical Requirements:**
-- Always include relevant RGBDS documentation references for CPU work
-- Specify TDD requirements and test-first approach
-- Include architectural constraints (encapsulation, composition)
-- Reference project coding standards and existing patterns
-
 ### Core Engineering Agents
 
 **Frontend Vite Engineer**
@@ -65,7 +31,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Handles UI components, Vite configuration, frontend architecture
 - Must write tests first, code to pass tests, then refactor with passing tests
 - Tests must be atomic, fast, and debuggable - no fake data or implementation detail testing
-- **MUST use Gemini MCP for all code generation and implementation tasks**
 - **Agent prompt file**: `.claude/agents/frontend-vite-engineer.md`
 
 **Backend TypeScript Engineer**
@@ -76,7 +41,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Implements CPU instructions with rigorous attention to hardware accuracy per RGBDS specification
 - Tests observe side effects at encapsulation boundaries (e.g., PPU tests don't require Display component)
 - **Required to reference RGBDS documentation in every instruction implementation**
-- **MUST use Gemini MCP for all code generation and implementation tasks**
 - **Agent prompt file**: `.claude/agents/backend-typescript-engineer.md`
 
 **Tech Lead**
@@ -87,7 +51,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Blocks work if linter, style, TypeScript compilation fails
 - No tolerance for disabled tests or fake data to make tests pass
 - Tests may be `.skip()` only with adequate documentation of what needs to happen
-- **MUST use Gemini MCP for all review documentation and enforcement communications**
 - **Agent prompt file**: `.claude/agents/tech-lead-enforcer.md`
 
 ### Review and Quality Agents
@@ -97,7 +60,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Enforces encapsulation, composition, and design principles
 - Reviews all code changes for architectural compliance
 - Must approve before human review
-- **MUST use Gemini MCP for all architectural analysis and review documentation**
 - **Agent prompt file**: `.claude/agents/architecture-reviewer.md`
 
 **Test Engineer**
@@ -108,7 +70,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Guards against implementation detail testing
 - Verifies tests observe side effects at proper boundaries
 - **Required to validate test cases against RGBDS documentation for hardware accuracy**
-- **MUST use Gemini MCP for all test implementation and TDD workflow guidance**
 - **Agent prompt file**: `.claude/agents/test-engineer.md`
 
 **DevOps Engineer**
@@ -117,7 +78,6 @@ Reference files: @filename.ts @other-relevant-file.ts
 - Implements smart caching and change detection
 - Enforces husky pre-commit hooks and lint-staged
 - Ensures validation steps mirror GitHub Actions pipeline
-- **MUST use Gemini MCP for all CI/CD configuration and tooling implementation**
 - **Agent prompt file**: `.claude/agents/devops-engineer.md`
 
 ### Research and Documentation
@@ -130,14 +90,12 @@ Reference files: @filename.ts @other-relevant-file.ts
 - **Required to reference RGBDS documentation for every instruction test case and specification**
 - Secondary references: GameBoy Online implementation, gbdev.gg8.se/wiki, gbdev.io/pandocs
 - Manages test ROM resources (Mealybug Tearoom, Blargg tests)
-- **MUST use Gemini MCP for all research documentation and specification creation**
 - **Agent prompt file**: `.claude/agents/gameboy-product-owner.md`
 
 **Documentation Specialist**
 
 - Maintains technical docs, API specs, architectural decisions
 - Works with Product Owner on documentation standards
-- **MUST use Gemini MCP for all documentation creation and maintenance tasks**
 - **Agent prompt file**: `.claude/agents/documentation-specialist.md`
 
 ## Workflow Requirements

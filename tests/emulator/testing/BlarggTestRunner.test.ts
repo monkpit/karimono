@@ -73,7 +73,7 @@ describe('BlarggTestRunner', () => {
     test('should return failure result for non-existent ROM file', async () => {
       mockedFs.existsSync.mockReturnValue(false);
 
-      const result = await testRunner.executeTest('/path/to/nonexistent.gb');
+      const result = testRunner.executeTest('/path/to/nonexistent.gb');
 
       expect(result.passed).toBe(false);
       expect(result.failureReason).toContain('ROM file not found');
@@ -85,7 +85,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue(mockRomData);
 
-      const result = await testRunner.executeTest('/path/to/test.gb');
+      const result = testRunner.executeTest('/path/to/test.gb');
 
       expect(mockedFs.readFileSync).toHaveBeenCalledWith('/path/to/test.gb');
       expect(result).toBeDefined();
@@ -99,7 +99,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue(mockRomData);
 
-      const result = await testRunner.executeTest('/path/to/test.gb');
+      const result = testRunner.executeTest('/path/to/test.gb');
 
       // Test should complete (though may not pass without actual emulation)
       expect(result.output).toBeDefined();
@@ -111,7 +111,7 @@ describe('BlarggTestRunner', () => {
         throw new Error('File read error');
       });
 
-      const result = await testRunner.executeTest('/path/to/error.gb');
+      const result = testRunner.executeTest('/path/to/error.gb');
 
       expect(result.passed).toBe(false);
       expect(result.failureReason).toContain('Error executing test');
@@ -123,7 +123,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.readFileSync.mockReturnValue(mockRomData);
 
       const expectedOutput = 'Test Passed';
-      const result = await testRunner.executeTest('/path/to/test.gb', expectedOutput);
+      const result = testRunner.executeTest('/path/to/test.gb', expectedOutput);
 
       expect(result.expectedOutput).toBe(expectedOutput);
     });
@@ -133,7 +133,7 @@ describe('BlarggTestRunner', () => {
     test('should return failure for non-existent directory', async () => {
       mockedFs.existsSync.mockReturnValue(false);
 
-      const result = await testRunner.executeTestSuite('/path/to/nonexistent');
+      const result = testRunner.executeTestSuite('/path/to/nonexistent');
 
       expect(result.passed).toBe(false);
       expect(result.totalTests).toBe(0);
@@ -145,7 +145,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.readdirSync.mockReturnValue(['test1.gb', 'test2.gb', 'readme.txt'] as any);
       mockedFs.readFileSync.mockReturnValue(Buffer.from('MOCK_ROM_DATA'));
 
-      const result = await testRunner.executeTestSuite('/path/to/test/suite');
+      const result = testRunner.executeTestSuite('/path/to/test/suite');
 
       expect(result.totalTests).toBe(2); // Only .gb files
       expect(result.testResults.has('test1.gb')).toBe(true);
@@ -158,7 +158,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.readdirSync.mockReturnValue(['dmg.gb', 'color.gbc', 'other.bin'] as any);
       mockedFs.readFileSync.mockReturnValue(Buffer.from('MOCK_ROM_DATA'));
 
-      const result = await testRunner.executeTestSuite('/path/to/mixed');
+      const result = testRunner.executeTestSuite('/path/to/mixed');
 
       expect(result.totalTests).toBe(2); // .gb and .gbc files
       expect(result.testResults.has('dmg.gb')).toBe(true);
@@ -170,7 +170,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.readdirSync.mockReturnValue(['pass.gb', 'fail.gb'] as any);
       mockedFs.readFileSync.mockReturnValue(Buffer.from('MOCK_ROM_DATA'));
 
-      const result = await testRunner.executeTestSuite('/path/to/statistics');
+      const result = testRunner.executeTestSuite('/path/to/statistics');
 
       expect(result.totalTests).toBe(2);
       expect(result.passedTests + result.failedTests).toBe(result.totalTests);
@@ -181,7 +181,7 @@ describe('BlarggTestRunner', () => {
     test('should capture output with cycle limits', async () => {
       const maxCycles = 1000;
 
-      const output = await testRunner.captureSerialOutput(maxCycles);
+      const output = testRunner.captureSerialOutput(maxCycles);
 
       expect(typeof output).toBe('string');
     });
@@ -189,7 +189,7 @@ describe('BlarggTestRunner', () => {
     test('should respect maximum cycle limits', async () => {
       const startTime = Date.now();
 
-      await testRunner.captureSerialOutput(500);
+      testRunner.captureSerialOutput(500);
 
       const endTime = Date.now();
       // Should complete quickly due to low cycle limit
@@ -207,7 +207,7 @@ describe('BlarggTestRunner', () => {
       mockedFs.readFileSync.mockReturnValue(mockRomData);
 
       const startTime = Date.now();
-      await testRunner.executeTest('/path/to/quick.gb');
+      testRunner.executeTest('/path/to/quick.gb');
       const endTime = Date.now();
 
       // Should not exceed timeout
@@ -223,7 +223,7 @@ describe('BlarggTestRunner', () => {
       });
 
       // Should not throw, should return error result
-      const result = await testRunner.executeTestSuite('/path/to/error/dir');
+      const result = testRunner.executeTestSuite('/path/to/error/dir');
       expect(result.passed).toBe(false);
     });
 
@@ -236,7 +236,7 @@ describe('BlarggTestRunner', () => {
           throw new Error('Bad ROM');
         });
 
-      const result = await testRunner.executeTestSuite('/path/to/mixed/results');
+      const result = testRunner.executeTestSuite('/path/to/mixed/results');
 
       expect(result.totalTests).toBe(2);
       expect(result.testResults.size).toBe(2);

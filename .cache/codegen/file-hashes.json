@@ -1,0 +1,42 @@
+[
+  {
+    "path": "tests/resources/opcodes.json",
+    "hash": "43b630cf1cc1c2afcc5d513792b232274ec2fbe95274419b3fb829e1e6774939",
+    "lastModified": 1754021338539
+  },
+  {
+    "path": "scripts/codegen/generateInstructions.ts",
+    "hash": "ea51fe8257d6268a644c3fe3a4d5205b6e7d854610002625967b138dca5c5632",
+    "lastModified": 1754362548237
+  },
+  {
+    "path": "scripts/codegen/incrementalGeneration.ts",
+    "hash": "e08851b2277942ee19e22bed8a1aea4fff7b620693da417a1223d2285d5d64ee",
+    "lastModified": 1754239794234
+  },
+  {
+    "path": "scripts/codegen/checkGenerated.ts",
+    "hash": "01fd85af6e025bdec0f7c05c43cdb0e835aab73c960c19440cb5fd5780376390",
+    "lastModified": 1754237784678
+  },
+  {
+    "path": "src/emulator/types.ts",
+    "hash": "40c7e51346330e678ee582348037fff9565ff612971fe0ff8b50e432ecb57c8d",
+    "lastModified": 1754626046896
+  },
+  {
+    "path": "src/emulator/cpu/CPU.ts",
+    "hash": "2ec629fcfaa86f13220d49df94fbd0b2eaa13eceb31761b610ec31ffcbc0396d",
+    "lastModified": 1754625994756
+  },
+  {
+    "path": "tsconfig.json",
+    "hash": "814246e27cc3e133b2adec442e99ac472f2aeea19b498a4ce399bc75a15c1e29",
+    "lastModified": 1754239614649
+  },
+  {
+    "path": "package.json",
+    "hash": "38734d65c584478d60da93fdae8d899a707a6bae2fb5d37b6ee2dc5cca7dd739",
+    "lastModified": 1754528927025
+  }
+]

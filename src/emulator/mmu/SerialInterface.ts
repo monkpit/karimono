@@ -25,20 +25,22 @@ export class SerialInterface implements SerialInterfaceComponent {
   // Transfer state
   private transferActive: boolean = false;
   private transferCycles: number = 0; // Accumulated cycles during transfer
-  private readonly TRANSFER_CYCLES = 32768; // Total cycles for complete transfer (8 bits × 4096)
+  private readonly TRANSFER_CYCLES = 4096; // Hardware-accurate timing: 8192Hz clock -> 4096 CPU cycles @ 4.194MHz
 
   // Output buffer for test ROM integration
   private outputBuffer: string = '';
 
   // Debug mode
   private debug: boolean = false;
+  // eslint-disable-next-line no-unused-vars
   private interruptCallback: (interrupt: number) => void;
 
   constructor(
     debug = false,
-    interruptCallback: (interrupt: number) => void = () => {
-      /* no-op */
-    },
+    // eslint-disable-next-line no-unused-vars
+    interruptCallback: (interrupt: number) => void = (_interrupt: number) => {
+      // No-op default implementation
+    }
   ) {
     this.debug = debug;
     this.interruptCallback = interruptCallback;
@@ -61,7 +63,9 @@ export class SerialInterface implements SerialInterfaceComponent {
     this.serialData = value & 0xff; // Mask to 8 bits
     if (this.debug) {
       // eslint-disable-next-line no-console
-      console.log(`[SerialInterface] SB write: 0x${value.toString(16).padStart(2, '0').toUpperCase()} (${String.fromCharCode(value)})`);
+      console.log(
+        `[SerialInterface] SB write: 0x${value.toString(16).padStart(2, '0').toUpperCase()} (${String.fromCharCode(value)})`
+      );
     }
   }
 
@@ -75,7 +79,9 @@ export class SerialInterface implements SerialInterfaceComponent {
 
     if (this.debug) {
       // eslint-disable-next-line no-console
-      console.log(`[SerialInterface] SC write: 0x${maskedValue.toString(16).padStart(2, '0').toUpperCase()} (start=${(maskedValue & 0x80) ? 1 : 0}, clock=${maskedValue & 0x01})`);
+      console.log(
+        `[SerialInterface] SC write: 0x${maskedValue.toString(16).padStart(2, '0').toUpperCase()} (start=${maskedValue & 0x80 ? 1 : 0}, clock=${maskedValue & 0x01})`
+      );
     }
 
     // Check if transfer should start
@@ -97,7 +103,7 @@ export class SerialInterface implements SerialInterfaceComponent {
       return;
     }
 
-    // Only advance if using internal clock (bit 0 = 1)
+    // Hardware-accurate: only advance transfer with internal clock
     if ((this.serialControl & 0x01) === 0) {
       // External clock mode - no auto-advance
       return;
@@ -133,7 +139,9 @@ export class SerialInterface implements SerialInterfaceComponent {
 
     if (this.debug) {
       // eslint-disable-next-line no-console
-      console.log(`[SerialInterface] Transfer started - data: 0x${this.serialData.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(this.serialData)}')`);
+      console.log(
+        `[SerialInterface] Transfer started - data: 0x${this.serialData.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(this.serialData)}')`
+      );
     }
   }
 
@@ -161,7 +169,9 @@ export class SerialInterface implements SerialInterfaceComponent {
 
     if (this.debug) {
       // eslint-disable-next-line no-console
-      console.log(`[SerialInterface] Transfer completed - sent: 0x${transmittedByte.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(transmittedByte)}'), buffer: "${this.outputBuffer}"`);
+      console.log(
+        `[SerialInterface] Transfer completed - sent: 0x${transmittedByte.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(transmittedByte)}'), buffer: "${this.outputBuffer}"`
+      );
     }
 
     // In real hardware, this would also trigger a serial interrupt

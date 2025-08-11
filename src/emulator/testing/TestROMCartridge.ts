@@ -47,6 +47,8 @@ export class TestROMCartridge implements CartridgeComponent {
   }
 
   writeMBCRegister(_address: number, _value: number): void {
+    void _address;
+    void _value;
     // Test ROMs typically don't use complex MBC (Memory Bank Controller) features
     // For Blargg test ROMs, we can implement a simple no-op
   }
@@ -98,6 +100,7 @@ export class TestROMCartridge implements CartridgeComponent {
   }
 
   step(_cycles: number): void {
+    void _cycles;
     // Test ROM cartridges don't need stepping logic
   }
 

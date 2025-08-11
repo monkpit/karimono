@@ -292,6 +292,11 @@ export interface MMUComponent extends MemoryComponent {
   setSerialInterface(_serialInterface: SerialInterfaceComponent): void;
 
   /**
+   * Set Timer component for register delegation
+   */
+  setTimer(_timer: TimerComponent): void;
+
+  /**
    * Request an interrupt to be raised
    * @param interrupt Interrupt bit (0-4: VBlank, LCDC, Timer, Serial, Joypad)
    */
@@ -480,6 +485,58 @@ export interface SerialInterfaceComponent extends EmulatorComponent {
 }
 
 /**
+ * Timer component for hardware-accurate Game Boy timer system
+ * Implements DIV, TIMA, TMA, and TAC registers with cycle-accurate timing
+ */
+export interface TimerComponent extends EmulatorComponent {
+  /**
+   * Advance timer system by specified CPU cycles
+   * @param cycles Number of CPU cycles to advance
+   */
+  step(cycles: number): void;
+
+  /**
+   * Read DIV register (0xFF04) - Divider
+   */
+  readDIV(): number;
+
+  /**
+   * Write DIV register (0xFF04) - resets internal counter
+   */
+  writeDIV(value: number): void;
+
+  /**
+   * Read TIMA register (0xFF05) - Timer Counter
+   */
+  readTIMA(): number;
+
+  /**
+   * Write TIMA register (0xFF05) - Timer Counter
+   */
+  writeTIMA(value: number): void;
+
+  /**
+   * Read TMA register (0xFF06) - Timer Modulo
+   */
+  readTMA(): number;
+
+  /**
+   * Write TMA register (0xFF06) - Timer Modulo
+   */
+  writeTMA(value: number): void;
+
+  /**
+   * Read TAC register (0xFF07) - Timer Control
+   */
+  readTAC(): number;
+
+  /**
+   * Write TAC register (0xFF07) - Timer Control
+   */
+  writeTAC(value: number): void;
+}
+
+/**
  * Component dependency injection container
  * Manages creation order and inter-component references
  */
@@ -518,4 +575,9 @@ export interface ComponentContainer {
    * Get Serial Interface component instance (undefined until implemented)
    */
   getSerialInterface(): SerialInterfaceComponent | undefined;
+
+  /**
+   * Get Timer component instance (undefined until implemented)
+   */
+  getTimer(): TimerComponent | undefined;
 }

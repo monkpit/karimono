@@ -47,17 +47,24 @@ export interface BlarggTestSuiteResult {
  * Blargg Test Runner for automated hardware validation
  */
 export class BlarggTestRunner {
-  private static readonly MAX_CYCLES = 10_000_000; // 10 million cycles maximum
+  // Increased cycle limit for longer tests, sufficient for ~35 seconds at 4.194MHz
+  private static readonly MAX_CYCLES = 150_000_000;
   private static readonly COMPLETION_TIMEOUT_MS = 30_000; // 30 second timeout
-  private static readonly CPU_STATE_LOG_INTERVAL = 1_000_000; // Log CPU state every 1M cycles
+  // Adjusted logging intervals for performance
+  private static readonly CPU_STATE_LOG_INTERVAL = 10_000_000; // Log CPU state every 10M cycles
+  private static readonly INSTRUCTION_DEBUG_INTERVAL = 1_000_000; // Log instruction state every 1M cycles for debugging
 
   private emulator: EmulatorContainer;
   private serialInterface: SerialInterfaceComponent;
   private mmu: MMUComponent;
   private cpu: CPUComponent;
   private debug: boolean;
+  private performanceMode: boolean;
+  private instructionDebugMode: boolean = false;
+  private lastSerialOutput: string = '';
+  private instructionCount: number = 0;
 
-  constructor(parentElement: HTMLElement, debug = false) {
+  constructor(parentElement: HTMLElement, debug = false, performanceMode = true) {
     // Initialize emulator with minimal configuration
     this.emulator = new EmulatorContainer(parentElement, {
       display: { width: 160, height: 144, scale: 1 },
@@ -86,6 +93,7 @@ export class BlarggTestRunner {
     this.mmu = mmu;
     this.cpu = cpu;
     this.debug = debug;
+    this.performanceMode = performanceMode;
   }
 
   /**
@@ -100,13 +108,62 @@ export class BlarggTestRunner {
   }
 
   /**
+   * Enable instruction-level debugging for detailed failure analysis
+   * @param enabled Whether to enable instruction debugging
+   */
+  enableInstructionDebug(enabled: boolean): void {
+    this.instructionDebugMode = enabled;
+    this.log(`Instruction debug mode ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Log detailed CPU state and instruction information for debugging
+   * @param opcode Current opcode being executed
+   * @param preState CPU state before instruction
+   * @param postState CPU state after instruction
+   */
+  private logInstructionDebug(
+    opcode: number,
+    preState: string,
+    postState: string,
+    serialOutput: string
+  ): void {
+    if (this.instructionDebugMode) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[INSTR-DEBUG] Instruction ${this.instructionCount}: ` +
+          `Opcode=0x${opcode.toString(16).padStart(2, '0').toUpperCase()} | ` +
+          `PRE: ${preState} | POST: ${postState}`
+      );
+
+      if (serialOutput !== this.lastSerialOutput) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[SERIAL-CHANGE] New output: "${serialOutput}" ` + `(was: "${this.lastSerialOutput}")`
+        );
+        this.lastSerialOutput = serialOutput;
+      }
+    }
+  }
+
+  /**
    * Execute a single Blargg test ROM
    * @param romPath Path to the ROM file
    * @param expectedOutput Expected output pattern (optional)
    * @returns Test execution result
    */
-  async executeTest(romPath: string, expectedOutput?: string): Promise<BlarggTestResult> {
+  executeTest(romPath: string, expectedOutput?: string): BlarggTestResult {
     this.log(`Executing test: ${romPath}`);
+
+    // Enable instruction debugging for problematic test ROMs that were timing out
+    const problematicRoms = ['04-op r,imm', '05-op rp', '09-op r,r', '10-bit ops', '11-op a,(hl)'];
+    const isProblematicRom = problematicRoms.some(romName => romPath.includes(romName));
+
+    if (isProblematicRom && !this.instructionDebugMode) {
+      this.log(`Enabling instruction debug mode for potentially problematic ROM: ${romPath}`);
+      this.enableInstructionDebug(true);
+    }
+
     // Verify ROM file exists
     if (!fs.existsSync(romPath)) {
       const failureReason = `ROM file not found: ${romPath}`;
@@ -139,7 +196,7 @@ export class BlarggTestRunner {
       this.emulator.start();
 
       // Execute with cycle limit and timeout
-      const result = await this.executeWithLimits();
+      const result = this.executeWithLimits();
 
       this.emulator.stop();
 
@@ -180,7 +237,7 @@ export class BlarggTestRunner {
    * @param romDirectory Directory containing ROM files
    * @returns Test suite execution results
    */
-  async executeTestSuite(romDirectory: string): Promise<BlarggTestSuiteResult> {
+  executeTestSuite(romDirectory: string): BlarggTestSuiteResult {
     this.log(`Executing test suite: ${romDirectory}`);
     if (!fs.existsSync(romDirectory)) {
       this.log(`Test suite failed: Directory not found`);
@@ -208,7 +265,7 @@ export class BlarggTestRunner {
       // Execute each test ROM
       for (const file of files) {
         const romPath = path.join(romDirectory, file);
-        const result = await this.executeTest(romPath);
+        const result = this.executeTest(romPath);
 
         testResults.set(file, result);
 
@@ -251,7 +308,7 @@ export class BlarggTestRunner {
    * @param maxCycles Maximum cycles to execute
    * @returns Captured serial output
    */
-  async captureSerialOutput(maxCycles: number): Promise<string> {
+  captureSerialOutput(maxCycles: number): string {
     this.serialInterface.clearOutputBuffer();
 
     const startTime = Date.now();
@@ -267,9 +324,6 @@ export class BlarggTestRunner {
       if (Date.now() - startTime > BlarggTestRunner.COMPLETION_TIMEOUT_MS) {
         break;
       }
-
-      // Allow other tasks to run
-      await new Promise(resolve => setTimeout(resolve, 0));
     }
 
     return this.serialInterface.getOutputBuffer();
@@ -279,21 +333,112 @@ export class BlarggTestRunner {
    * Execute emulation with cycle and time limits
    * @returns Execution result with cycle count and potential failure reason
    */
-  private async executeWithLimits(): Promise<{ cycles: number; failureReason?: string }> {
+  private executeWithLimits(): { cycles: number; failureReason?: string } {
     const startTime = Date.now();
     let cyclesExecuted = 0;
     let lastCpuStateLog = 0;
+    let lastInstructionDebugLog = 0;
+
+    // Reset debug state
+    this.instructionCount = 0;
+    this.lastSerialOutput = this.serialInterface.getOutputBuffer();
+
+    // Infinite loop detection variables
+    let lastPC = -1;
+    let pcStallCounter = 0;
+    const PC_STALL_THRESHOLD = 8192; // Cycles stuck at same PC before assuming infinite loop
+    let loopDetectionActive = false;
+
+    if (this.instructionDebugMode && !this.performanceMode) {
+      this.log('Starting instruction-level debugging mode');
+    }
 
     while (cyclesExecuted < BlarggTestRunner.MAX_CYCLES) {
+      // Get current PC for loop detection
+      const debugInfo = this.cpu.getDebugInfo();
+      const currentPC = this.extractPCFromDebugInfo(debugInfo);
+
+      // Track PC stall for infinite loop detection
+      if (currentPC === lastPC) {
+        pcStallCounter++;
+      } else {
+        lastPC = currentPC;
+        pcStallCounter = 0;
+      }
+
+      // Check for infinite loop - only after we've detected test completion
+      const output = this.serialInterface.getOutputBuffer();
+      const testCompleteDetected = this.isTestComplete(output);
+
+      if (testCompleteDetected && !loopDetectionActive) {
+        loopDetectionActive = true;
+        this.log(`Test completion pattern detected, enabling infinite loop detection`);
+      }
+
+      if (loopDetectionActive && pcStallCounter > PC_STALL_THRESHOLD) {
+        this.log(
+          `Infinite loop detected at PC=0x${currentPC.toString(16).toUpperCase().padStart(4, '0')} after test completion`
+        );
+        this.log(`Test finished successfully with output: ${JSON.stringify(output)}`);
+        if (this.instructionDebugMode && !this.performanceMode) {
+          this.log(`Total instructions executed: ${this.instructionCount}`);
+        }
+        return { cycles: cyclesExecuted };
+      }
+
+      // Capture CPU state before stepping for instruction debugging
+      let preStepState = '';
+      let opcode = 0x00;
+      if (this.instructionDebugMode && !this.performanceMode) {
+        preStepState = this.cpu.getDebugInfo();
+        // Try to get the opcode that will be executed
+        try {
+          const pc = this.cpu.getPC();
+          opcode = this.mmu.readByte(pc);
+        } catch {
+          // If we can't read the opcode, use 0x00
+          opcode = 0x00;
+        }
+      }
+
       // Step emulation and get actual CPU cycles
       const actualCycles = this.emulator.step();
       this.serialInterface.step(actualCycles); // Use actual CPU cycles
-      cyclesExecuted += actualCycles;
 
-      // Check for completion patterns in output
-      const output = this.serialInterface.getOutputBuffer();
-      if (this.isTestComplete(output)) {
+      // Also step MMU for LY register timing, skip in performance mode
+      if (
+        !this.performanceMode &&
+        this.mmu &&
+        'step' in this.mmu &&
+        // eslint-disable-next-line no-unused-vars
+        typeof (this.mmu as { step: (cycles: number) => void }).step === 'function'
+      ) {
+        // eslint-disable-next-line no-unused-vars
+        (this.mmu as { step: (cycles: number) => void }).step(actualCycles);
+      }
+
+      cyclesExecuted += actualCycles;
+      this.instructionCount++;
+
+      // Log instruction-level debugging if enabled and not in performance mode
+      if (
+        !this.performanceMode &&
+        this.instructionDebugMode &&
+        cyclesExecuted - lastInstructionDebugLog >= BlarggTestRunner.INSTRUCTION_DEBUG_INTERVAL
+      ) {
+        const postStepState = this.cpu.getDebugInfo();
+        const currentSerialOutput = this.serialInterface.getOutputBuffer();
+        this.logInstructionDebug(opcode, preStepState, postStepState, currentSerialOutput);
+        lastInstructionDebugLog = cyclesExecuted;
+      }
+
+      // Check for completion patterns in output (early detection without loop requirement)
+      if (testCompleteDetected && pcStallCounter === 0) {
+        // Test completed and still executing - give it a moment to settle
         this.log(`Test completion detected! Output: ${JSON.stringify(output)}`);
+        if (this.instructionDebugMode && !this.performanceMode) {
+          this.log(`Total instructions executed: ${this.instructionCount}`);
+        }
         return { cycles: cyclesExecuted };
       }
 
@@ -308,19 +453,15 @@ export class BlarggTestRunner {
         };
       }
 
-      // Log CPU state periodically
+      // Log CPU state periodically, skip in performance mode
       if (
+        !this.performanceMode &&
         this.debug &&
         cyclesExecuted - lastCpuStateLog >= BlarggTestRunner.CPU_STATE_LOG_INTERVAL
       ) {
         this.log(`CPU state at ${cyclesExecuted} cycles:`);
         this.log(this.cpu.getDebugInfo());
         lastCpuStateLog = cyclesExecuted;
-      }
-
-      // Yield control periodically
-      if (cyclesExecuted % 10000 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
 
@@ -334,14 +475,73 @@ export class BlarggTestRunner {
   }
 
   /**
+   * Extract PC value from CPU debug info string
+   * @param debugInfo Debug info string from CPU
+   * @returns PC value or -1 if not found
+   */
+  private extractPCFromDebugInfo(debugInfo: string): number {
+    // Look for PC pattern like "PC: 0x1234" or "pc=0x1234"
+    const pcMatch = debugInfo.match(/pc[:\s=]+0x([0-9a-fA-F]+)/i);
+    if (pcMatch?.[1]) {
+      return parseInt(pcMatch[1], 16);
+    }
+    return -1; // Couldn't parse PC
+  }
+
+  /**
    * Check if test execution is complete based on output patterns
+   * Enhanced to handle individual Blargg test ROM completion patterns
    * @param output Serial output to analyze
    * @returns Whether test appears complete
    */
   private isTestComplete(output: string): boolean {
-    const completionPatterns = ['Passed', 'Failed', 'Done', 'All tests passed', 'Test completed'];
+    // Standard completion patterns
+    const standardPatterns = ['Passed', 'Failed', 'Done', 'All tests passed', 'Test completed'];
 
-    return completionPatterns.some(pattern => output.toLowerCase().includes(pattern.toLowerCase()));
+    // Individual test ROM patterns - these tests output their name followed by completion
+    const individualTestPatterns = [
+      '04-op r,imm',
+      '05-op rp',
+      '09-op r,r',
+      '10-bit ops',
+      '11-op a,(hl)',
+      '01-special',
+      '02-interrupts',
+      '03-op sp,hl',
+      '06-ld r,r',
+      '07-jr,jp,call,ret,rst',
+      '08-misc instrs',
+    ];
+
+    // Check for standard completion patterns first
+    const hasStandardCompletion = standardPatterns.some(pattern =>
+      output.toLowerCase().includes(pattern.toLowerCase())
+    );
+
+    if (hasStandardCompletion) {
+      return true;
+    }
+
+    // For individual test ROMs, check if we have the test name and signs of completion
+    // Many Blargg tests output: "Test Name\n\n\nPassed" or similar
+    const hasIndividualTestName = individualTestPatterns.some(testName =>
+      output.includes(testName)
+    );
+
+    if (hasIndividualTestName) {
+      // Look for completion indicators after test name
+      const lines = output.split('\n');
+      const hasPassedLine = lines.some(line => line.trim().toLowerCase() === 'passed');
+      const hasFailedLine = lines.some(line => line.trim().toLowerCase().includes('failed'));
+
+      // Check for the typical Blargg pattern: test name followed by multiple newlines then "Passed"
+      const blarggPattern = /\n\s*\n\s*\n\s*(Passed|Failed)/i;
+      const hasBlarggPattern = blarggPattern.test(output);
+
+      return hasPassedLine || hasFailedLine || hasBlarggPattern;
+    }
+
+    return false;
   }
 
   /**

@@ -316,12 +316,12 @@ describe('CPU SRA Instructions', () => {
         { value: 0x01, expected: 0x00, carry: true, zero: true },
         { value: 0x7e, expected: 0x3f, carry: false, zero: false },
       ];
-      
+
       for (const testCase of testCases) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(testCase.value);
         cpu.setRegisterF(0b01100000); // Set N=1, H=1 initially
 
@@ -340,12 +340,12 @@ describe('CPU SRA Instructions', () => {
 
     it('should handle all negative values correctly (sign bit = 1)', () => {
       const negativeValues = [0x80, 0x81, 0x82, 0xfe, 0xff];
-      
+
       for (const value of negativeValues) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
 
         mmu.writeByte(0x0100, 0xcb);
@@ -360,12 +360,12 @@ describe('CPU SRA Instructions', () => {
 
     it('should handle all positive values correctly (sign bit = 0)', () => {
       const positiveValues = [0x00, 0x01, 0x02, 0x7e, 0x7f];
-      
+
       for (const value of positiveValues) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
 
         mmu.writeByte(0x0100, 0xcb);

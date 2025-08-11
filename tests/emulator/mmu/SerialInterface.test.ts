@@ -58,8 +58,8 @@ describe('SerialInterface Component', () => {
       serialInterface.writeSC(0x81);
       expect(serialInterface.isTransferActive()).toBe(true);
 
-      // Action: Execute exactly 32768 CPU cycles (8 bits × 4096 cycles per bit)
-      serialInterface.step(32767); // One cycle short
+      // Action: Execute exactly 4096 CPU cycles (hardware-accurate timing)
+      serialInterface.step(4095); // One cycle short
       expect(serialInterface.isTransferActive()).toBe(true); // Still active
 
       serialInterface.step(1); // Complete the transfer
@@ -74,13 +74,13 @@ describe('SerialInterface Component', () => {
       serialInterface.writeSC(0x81);
 
       // Step in chunks that add up to complete transfer
-      serialInterface.step(10000);
+      serialInterface.step(2000);
       expect(serialInterface.isTransferActive()).toBe(true);
 
-      serialInterface.step(10000);
+      serialInterface.step(2000);
       expect(serialInterface.isTransferActive()).toBe(true);
 
-      serialInterface.step(12768); // Total: 32768
+      serialInterface.step(96); // Total: 4096
       expect(serialInterface.isTransferActive()).toBe(false);
     });
   });
@@ -92,7 +92,7 @@ describe('SerialInterface Component', () => {
 
       // Action: Write 0x81 to SC, wait for transfer completion
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768); // Complete transfer
+      serialInterface.step(4096); // Complete transfer
 
       // Expected Result: SB = 0xFF (all input bits high)
       expect(serialInterface.readSB()).toBe(0xff);
@@ -103,7 +103,7 @@ describe('SerialInterface Component', () => {
       // Test with different starting value - should still become 0xFF
       serialInterface.writeSB(0x55);
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       expect(serialInterface.readSB()).toBe(0xff);
     });
@@ -118,17 +118,17 @@ describe('SerialInterface Component', () => {
       // Transfer 'H' (0x48)
       serialInterface.writeSB(0x48);
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       // Transfer 'i' (0x69)
       serialInterface.writeSB(0x69);
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       // Transfer '!' (0x21)
       serialInterface.writeSB(0x21);
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       // Expected Result: Output buffer contains "Hi!"
       expect(serialInterface.getOutputBuffer()).toBe('Hi!');
@@ -140,7 +140,7 @@ describe('SerialInterface Component', () => {
       for (let i = 0; i < text.length; i++) {
         serialInterface.writeSB(text.charCodeAt(i));
         serialInterface.writeSC(0x81);
-        serialInterface.step(32768);
+        serialInterface.step(4096);
       }
 
       expect(serialInterface.getOutputBuffer()).toBe(text);
@@ -150,7 +150,7 @@ describe('SerialInterface Component', () => {
       // Add some text to buffer
       serialInterface.writeSB(0x41); // 'A'
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       expect(serialInterface.getOutputBuffer()).toBe('A');
 
@@ -163,19 +163,38 @@ describe('SerialInterface Component', () => {
       // Test control characters and extended ASCII
       serialInterface.writeSB(0x00); // NULL
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       serialInterface.writeSB(0x0a); // Newline
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       serialInterface.writeSB(0xff); // Extended ASCII
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       const output = serialInterface.getOutputBuffer();
       expect(output.length).toBe(3); // All characters should be captured
       expect(output.charCodeAt(1)).toBe(0x0a); // Newline preserved
+    });
+  });
+
+  describe('Interrupt Handling', () => {
+    test('Serial transfer completion should trigger a serial interrupt', () => {
+      // Mock interrupt callback
+      const interruptCallback = jest.fn();
+      serialInterface = new SerialInterface(false, interruptCallback);
+
+      // Initial State: SC = 0x81 (transfer active), SB = 0xAA
+      serialInterface.writeSB(0xaa);
+      serialInterface.writeSC(0x81);
+
+      // Action: Complete the transfer
+      serialInterface.step(4096);
+
+      // Expected Result: Interrupt callback for serial (bit 3) should be called
+      expect(interruptCallback).toHaveBeenCalledWith(3);
+      expect(interruptCallback).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -199,7 +218,7 @@ describe('SerialInterface Component', () => {
       // Setup some state
       serialInterface.writeSB(0x42);
       serialInterface.writeSC(0x81);
-      serialInterface.step(32768);
+      serialInterface.step(4096);
 
       expect(serialInterface.getOutputBuffer().length).toBeGreaterThan(0);
 
@@ -220,14 +239,14 @@ describe('SerialInterface Component', () => {
       serialInterface.writeSC(0x81);
 
       // Advance transfer partway
-      serialInterface.step(16384); // Halfway point
+      serialInterface.step(2048); // Halfway point (4096 / 2)
       expect(serialInterface.isTransferActive()).toBe(true);
 
       // Try to write to SC again - this starts a new transfer
       serialInterface.writeSC(0x81);
 
       // Since a new transfer was started, we need full cycle count again
-      serialInterface.step(32768); // Complete the new transfer
+      serialInterface.step(4096); // Complete the new transfer
       expect(serialInterface.isTransferActive()).toBe(false);
     });
 

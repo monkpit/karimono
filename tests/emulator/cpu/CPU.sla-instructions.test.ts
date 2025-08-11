@@ -256,12 +256,12 @@ describe('CPU SLA Instructions', () => {
 
     it('should always clear N and H flags regardless of input', () => {
       const testCases = [0x00, 0x80, 0xff, 0x55, 0xaa];
-      
+
       for (const value of testCases) {
         // Reset for each test
         mmu.reset();
         cpu = new CPU(mmu);
-        
+
         cpu.setRegisterA(value);
         cpu.setRegisterF(0b01100000); // Set N=1, H=1 initially
 

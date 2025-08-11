@@ -54,12 +54,16 @@ interface ValidationResult {
 }
 
 // Main validation function with CLI options support
-async function main() {
+async function main(): Promise<void> {
   // Parse CLI arguments for incremental validation
   const args = process.argv.slice(2);
+
   const incrementalMode = args.includes('--incremental') || args.includes('-i');
+
   const errorOnlyMode = args.includes('--errors-only') || args.includes('-e');
+
   const verboseMode = args.includes('--verbose') || args.includes('-v');
+
   const helpMode = args.includes('--help') || args.includes('-h');
 
   if (helpMode) {
@@ -132,7 +136,7 @@ async function main() {
   }
 }
 
-function validateFile(filePath: string, opcodes: OpcodesData, result: ValidationResult) {
+function validateFile(filePath: string, opcodes: OpcodesData, result: ValidationResult): void {
   const content = readFileSync(filePath, 'utf-8');
   const isCb = filePath.includes('cbprefixed');
   const fileIssues: Issue[] = [];
@@ -195,7 +199,7 @@ function validateMethod(
   isCb: boolean,
   opcodes: OpcodesData,
   result: ValidationResult
-) {
+): void {
   const methodIssues: Issue[] = [];
 
   // Architectural Compliance
@@ -300,12 +304,21 @@ function validateFlags(spec: OpcodeSpec, body: string, issues: Issue[]): void {
   const flagChecks: {
     flag: keyof OpcodeSpec['flags'];
     set: string;
+    // eslint-disable-next-line no-unused-vars
     check: (body: string) => boolean;
   }[] = [
-    { flag: 'Z', set: spec.flags.Z, check: body => body.includes('this.setZeroFlag') },
-    { flag: 'N', set: spec.flags.N, check: body => body.includes('this.setSubtractFlag') },
-    { flag: 'H', set: spec.flags.H, check: body => body.includes('this.setHalfCarryFlag') },
-    { flag: 'C', set: spec.flags.C, check: body => body.includes('this.setCarryFlag') },
+    { flag: 'Z', set: spec.flags.Z, check: (body: string) => body.includes('this.setZeroFlag') },
+    {
+      flag: 'N',
+      set: spec.flags.N,
+      check: (body: string) => body.includes('this.setSubtractFlag'),
+    },
+    {
+      flag: 'H',
+      set: spec.flags.H,
+      check: (body: string) => body.includes('this.setHalfCarryFlag'),
+    },
+    { flag: 'C', set: spec.flags.C, check: (body: string) => body.includes('this.setCarryFlag') },
   ];
 
   for (const { flag, set, check } of flagChecks) {
@@ -326,7 +339,7 @@ function validateFlags(spec: OpcodeSpec, body: string, issues: Issue[]): void {
   }
 }
 
-function printReport(result: ValidationResult, errorOnlyMode = false, verboseMode = false) {
+function printReport(result: ValidationResult, errorOnlyMode = false, verboseMode = false): void {
   console.log('\n--- Template Quality Validation Report ---');
   console.log(`📁 Filesystem: ${result.validatedFiles}/${result.totalFiles} files validated`);
   console.log(
@@ -390,7 +403,7 @@ function printReport(result: ValidationResult, errorOnlyMode = false, verboseMod
   }
 }
 
-function capitalize(s: string) {
+function capitalize(s: string): string {
   if (s.length < 2) return s.toUpperCase();
   if (s === 'Subtract') return 'Subtract'; // special case
   if (s === 'HalfCarry') return 'HalfCarry'; // special case
@@ -437,7 +450,7 @@ async function getRecentlyChangedFiles(allFiles: string[]): Promise<string[]> {
 /**
  * Print CLI help information
  */
-function printHelp() {
+function printHelp(): void {
   console.log(`
 🔧 SM83 CPU Template Quality Validation System
 `);
@@ -462,7 +475,7 @@ function printHelp() {
 /**
  * Print performance insights for the validation process
  */
-function printPerformanceInsights(result: ValidationResult) {
+function printPerformanceInsights(result: ValidationResult): void {
   console.log('📈 Performance Insights:');
 
   const avgMethodsPerFile =
