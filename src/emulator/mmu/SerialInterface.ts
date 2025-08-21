@@ -61,12 +61,6 @@ export class SerialInterface implements SerialInterfaceComponent {
 
   writeSB(value: number): void {
     this.serialData = value & 0xff; // Mask to 8 bits
-    if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SerialInterface] SB write: 0x${value.toString(16).padStart(2, '0').toUpperCase()} (${String.fromCharCode(value)})`
-      );
-    }
   }
 
   readSC(): number {
@@ -78,10 +72,7 @@ export class SerialInterface implements SerialInterfaceComponent {
     this.serialControl = maskedValue;
 
     if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SerialInterface] SC write: 0x${maskedValue.toString(16).padStart(2, '0').toUpperCase()} (start=${maskedValue & 0x80 ? 1 : 0}, clock=${maskedValue & 0x01})`
-      );
+      // Debug logging would go here when needed
     }
 
     // Check if transfer should start
@@ -138,10 +129,7 @@ export class SerialInterface implements SerialInterfaceComponent {
     this.serialControl |= 0x80;
 
     if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SerialInterface] Transfer started - data: 0x${this.serialData.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(this.serialData)}')`
-      );
+      // Debug logging would go here when needed
     }
   }
 
@@ -168,10 +156,7 @@ export class SerialInterface implements SerialInterfaceComponent {
     this.outputBuffer += String.fromCharCode(transmittedByte);
 
     if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[SerialInterface] Transfer completed - sent: 0x${transmittedByte.toString(16).padStart(2, '0').toUpperCase()} ('${String.fromCharCode(transmittedByte)}'), buffer: "${this.outputBuffer}"`
-      );
+      // Debug logging would go here when needed
     }
 
     // In real hardware, this would also trigger a serial interrupt

@@ -3,7 +3,7 @@
  * Generated SM83 CPU Instruction: JP
  *
  * GENERATED CODE - DO NOT EDIT MANUALLY
- * Generated on: 2025-08-05T02:55:52.653Z
+ * Generated on: 2025-08-12T00:32:12.390Z
  * Source: tests/resources/opcodes.json
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  *
@@ -29,7 +29,7 @@
 
 /**
  * JP 0xC2 - NZ, a16
- * Hardware: 3 bytes, 4 cycles taken / 3 cycles not taken
+ * Hardware: 3 bytes, 16 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -43,15 +43,14 @@ function executeJPNZa16C2(): number {
   if (!this.getZeroFlag()) {
     const targetAddress = (highByte << 8) | lowByte;
     this.registers.pc = targetAddress & 0xffff;
-    return 4; // RGBDS GBZ80: JP taken takes 4 cycles
   }
 
-  return 3; // RGBDS GBZ80: JP not taken takes 3 cycles
+  return 16;
 }
 
 /**
  * JP 0xC3 - a16
- * Hardware: 3 bytes, 4 cycles
+ * Hardware: 3 bytes, 16 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -64,12 +63,12 @@ function executeJPa16C3(): number {
   const targetAddress = (highByte << 8) | lowByte;
   this.registers.pc = targetAddress & 0xffff;
 
-  return 4; // RGBDS GBZ80: JP nn takes 4 cycles
+  return 16;
 }
 
 /**
  * JP 0xCA - Z, a16
- * Hardware: 3 bytes, 4 cycles taken / 3 cycles not taken
+ * Hardware: 3 bytes, 16 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -83,15 +82,14 @@ function executeJPZa16CA(): number {
   if (this.getZeroFlag()) {
     const targetAddress = (highByte << 8) | lowByte;
     this.registers.pc = targetAddress & 0xffff;
-    return 4; // RGBDS GBZ80: JP taken takes 4 cycles
   }
 
-  return 3; // RGBDS GBZ80: JP not taken takes 3 cycles
+  return 16;
 }
 
 /**
  * JP 0xD2 - NC, a16
- * Hardware: 3 bytes, 4 cycles taken / 3 cycles not taken
+ * Hardware: 3 bytes, 16 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -105,15 +103,14 @@ function executeJPNCa16D2(): number {
   if (!this.getCarryFlag()) {
     const targetAddress = (highByte << 8) | lowByte;
     this.registers.pc = targetAddress & 0xffff;
-    return 4; // RGBDS GBZ80: JP taken takes 4 cycles
   }
 
-  return 3; // RGBDS GBZ80: JP not taken takes 3 cycles
+  return 16;
 }
 
 /**
  * JP 0xDA - C, a16
- * Hardware: 3 bytes, 4 cycles taken / 3 cycles not taken
+ * Hardware: 3 bytes, 16 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -127,15 +124,14 @@ function executeJPCa16DA(): number {
   if (this.getCarryFlag()) {
     const targetAddress = (highByte << 8) | lowByte;
     this.registers.pc = targetAddress & 0xffff;
-    return 4; // RGBDS GBZ80: JP taken takes 4 cycles
   }
 
-  return 3; // RGBDS GBZ80: JP not taken takes 3 cycles
+  return 16;
 }
 
 /**
  * JP 0xE9 - HL
- * Hardware: 1 byte, 1 cycle
+ * Hardware: 1 byte, 4 cycles
  * Flags: Z=- N=- H=- C=-
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  */
@@ -143,7 +139,7 @@ function executeJPHLE9(): number {
   // JP HL - Jump to address in HL register pair
   this.registers.pc = this.getHL();
 
-  return 1; // RGBDS GBZ80: JP (HL) takes 1 cycle
+  return 4;
 }
 
 /**

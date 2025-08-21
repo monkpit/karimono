@@ -2,7 +2,7 @@
  * CPU Integration Guide for Generated Instructions
  *
  * GENERATED CODE - DO NOT EDIT MANUALLY
- * Generated on: 2025-08-05T02:55:52.662Z
+ * Generated on: 2025-08-12T00:32:12.393Z
  * Source: tests/resources/opcodes.json
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  *

@@ -97,7 +97,13 @@ describe('MMU Advanced Scenarios (Phase 2A)', () => {
       ioRegisters.forEach((address, index) => {
         const testValue = (0x10 + index) & 0xff;
         mmu.writeByte(address, testValue);
-        expect(mmu.readByte(address)).toBe(testValue);
+
+        // LY register (0xFF44) has special hardware behavior - writing resets it to 0
+        if (address === 0xff44) {
+          expect(mmu.readByte(address)).toBe(0);
+        } else {
+          expect(mmu.readByte(address)).toBe(testValue);
+        }
       });
     });
 

@@ -2,7 +2,7 @@
  * Generated unprefixed CPU Instructions Index
  *
  * GENERATED CODE - DO NOT EDIT MANUALLY
- * Generated on: 2025-08-05T02:55:52.657Z
+ * Generated on: 2025-08-12T00:32:12.390Z
  *
  * Exports all unprefixed instruction implementations.
  * Total instructions: 256

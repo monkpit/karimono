@@ -807,10 +807,13 @@ interface MockCartridgeComponent extends CartridgeComponent {
  * Simulates real cartridge behavior without implementation complexity
  */
 function createMockCartridge(romData: Uint8Array): jest.Mocked<MockCartridgeComponent> {
-  // Simple banking state for testing
+  // MBC1 banking state for testing
   let currentROMBank = 1;
   let currentRAMBank = 0;
   let ramEnabled = false;
+  let bankingMode = 0; // 0 = simple banking, 1 = advanced banking
+  let lowerROMBankBits = 1; // Lower 5 bits of ROM bank
+  let upperBankBits = 0; // Upper 2 bits for ROM bank (or RAM bank in simple mode)
   const ramData = new Uint8Array(32768); // 4 banks of 8KB each
 
   const mockCartridge = {
@@ -819,6 +822,9 @@ function createMockCartridge(romData: Uint8Array): jest.Mocked<MockCartridgeComp
       currentROMBank = 1;
       currentRAMBank = 0;
       ramEnabled = false;
+      bankingMode = 0;
+      lowerROMBankBits = 1;
+      upperBankBits = 0;
       ramData.fill(0);
     }),
 
@@ -848,16 +854,47 @@ function createMockCartridge(romData: Uint8Array): jest.Mocked<MockCartridgeComp
     }),
 
     writeMBCRegister: jest.fn((address: number, value: number): void => {
-      // Simplified MBC1-like behavior for testing
+      // Complete MBC1 behavior for testing
       if (address >= 0x0000 && address <= 0x1fff) {
         // RAM enable
         ramEnabled = (value & 0x0f) === 0x0a;
       } else if (address >= 0x2000 && address <= 0x3fff) {
         // ROM bank select (lower 5 bits)
-        currentROMBank = Math.max(1, value & 0x1f);
+        lowerROMBankBits = Math.max(1, value & 0x1f);
+        // Update current ROM bank based on banking mode
+        if (bankingMode === 0) {
+          // Simple banking: only lower bits matter
+          currentROMBank = lowerROMBankBits;
+        } else {
+          // Advanced banking: combine upper and lower bits
+          currentROMBank = (upperBankBits << 5) | lowerROMBankBits;
+        }
       } else if (address >= 0x4000 && address <= 0x5fff) {
-        // RAM bank select or upper ROM bank bits
-        currentRAMBank = value & 0x03;
+        // Upper bank register (2 bits)
+        upperBankBits = value & 0x03;
+
+        if (bankingMode === 0) {
+          // Simple banking mode: this controls RAM bank
+          currentRAMBank = upperBankBits;
+        } else {
+          // Advanced banking mode: this controls upper ROM bank bits
+          currentROMBank = (upperBankBits << 5) | lowerROMBankBits;
+          currentRAMBank = 0; // RAM bank fixed to 0 in advanced mode
+        }
+      } else if (address >= 0x6000 && address <= 0x7fff) {
+        // Banking mode select
+        bankingMode = value & 0x01;
+
+        // Update banking state based on new mode
+        if (bankingMode === 0) {
+          // Simple banking: ROM bank uses only lower bits, RAM bank uses upper bits
+          currentROMBank = lowerROMBankBits;
+          currentRAMBank = upperBankBits;
+        } else {
+          // Advanced banking: ROM bank uses upper+lower bits, RAM bank fixed to 0
+          currentROMBank = (upperBankBits << 5) | lowerROMBankBits;
+          currentRAMBank = 0;
+        }
       }
     }),
 
@@ -870,6 +907,17 @@ function createMockCartridge(romData: Uint8Array): jest.Mocked<MockCartridgeComp
         checksumValid: true,
       })
     ),
+
+    getState: jest.fn(() => ({
+      rom: new Uint8Array(romData),
+      ram: new Uint8Array(ramData),
+      banking: {
+        currentROMBank,
+        currentRAMBank,
+        ramEnabled,
+        bankingMode,
+      },
+    })),
 
     // Test utilities (not part of interface)
     switchToBank: jest.fn((bank: number) => {
@@ -984,6 +1032,121 @@ describe('MMU Cartridge Branch Coverage', () => {
       // (exact values depend on initializePostBootIORegisters implementation)
       const snapshot = mmu.getSnapshot();
       expect(snapshot.bootROMEnabled).toBe(false); // Post-boot state keeps boot ROM disabled
+    });
+  });
+
+  /**
+   * MBC1 ADVANCED BANKING SYSTEM TESTS
+   *
+   * Tests complete MBC1 banking implementation with banking mode control.
+   * Required for Blargg ROM 04 Game Boy Doctor validation.
+   * Addresses ROM 04 failure at line 2335 where A=0x14 but should be A=0x23.
+   *
+   * Hardware Reference: Pan Docs MBC1 specification
+   * Test ROM Requirement: ROM 04 writes to 0x4000-0x5FFF to access higher banks
+   */
+  describe('MBC1 Advanced Banking', () => {
+    it('should implement complete MBC1 banking with mode control', () => {
+      // RED PHASE: This test WILL FAIL until complete MBC1 implementation
+      // Test: Replicates exact Blargg ROM 04 banking behavior that's currently failing
+
+      // Create multi-bank ROM that simulates ROM 04 structure
+      const romData = new Uint8Array(524288); // 32 banks (512KB) like ROM 04
+
+      // Set specific patterns for different banks
+      // Bank 0 (0x0000-0x3FFF): Fixed bank
+      for (let i = 0; i < 16384; i++) {
+        romData[i] = 0x10;
+      }
+
+      // Bank 1 (default switchable bank)
+      for (let i = 16384; i < 32768; i++) {
+        romData[i] = 0x14; // This is what we currently get incorrectly
+      }
+
+      // Bank 3 (target bank that ROM 04 tries to access)
+      for (let i = 49152; i < 65536; i++) {
+        romData[i] = 0x23; // This is what Game Boy Doctor expects at 0x4244
+      }
+
+      // Address 0x4244 specifically (where Game Boy Doctor checks)
+      const targetAddress = 0x4244;
+      romData[16384 + (targetAddress - 0x4000)] = 0x14; // Bank 1 value
+      romData[49152 + (targetAddress - 0x4000)] = 0x23; // Bank 3 value
+
+      const mockCartridge = createMockCartridge(romData);
+      mmu.loadCartridge(mockCartridge);
+
+      // Test initial state: Should read Bank 1 by default
+      expect(mmu.readByte(targetAddress)).toBe(0x14);
+      expect(mmu.getSnapshot().currentROMBank).toBe(1);
+
+      // Test: Write to 0x2000-0x3FFF sets lower 5 ROM bank bits
+      mmu.writeByte(0x2000, 0x03); // Set lower bits to 3
+      expect(mmu.getSnapshot().currentROMBank).toBe(3);
+      expect(mmu.readByte(targetAddress)).toBe(0x23); // Should now read from Bank 3
+
+      // Test: Write to 0x4000-0x5FFF in simple banking mode (default)
+      // Should set RAM bank only, not affect ROM bank upper bits
+      mmu.writeByte(0x4000, 0x01); // Set RAM bank to 1
+      expect(mmu.getSnapshot().currentRAMBank).toBe(1);
+      expect(mmu.getSnapshot().currentROMBank).toBe(3); // ROM bank unchanged
+
+      // THIS PART WILL FAIL: Banking mode control not implemented in MMU
+      // Test: Switch to advanced banking mode (write 0x01 to 0x6000-0x7FFF)
+      mmu.writeByte(0x6000, 0x01); // Enable advanced banking mode
+
+      // Test: In advanced mode, 0x4000-0x5FFF writes should affect upper ROM bank bits
+      mmu.writeByte(0x2000, 0x01); // Set lower ROM bank bits to 1
+      mmu.writeByte(0x4000, 0x01); // Set upper ROM bank bits to 1 (creates bank 1 + 32 = 33)
+      // But our ROM only has 32 banks, so this tests the implementation bounds
+
+      // Test: Return to simple banking mode
+      mmu.writeByte(0x6000, 0x00); // Simple banking mode
+      mmu.writeByte(0x2000, 0x03); // Bank 3 again
+      expect(mmu.readByte(targetAddress)).toBe(0x23);
+    });
+
+    it('should expose the exact MMU banking issue that causes ROM 04 failure', () => {
+      // RED PHASE: This test WILL FAIL to expose the exact bug in MMU.updateBankingState
+      // Test: Directly tests the missing banking mode control in MMU
+
+      const romData = new Uint8Array(65536); // 4 banks for simple testing
+      const mockCartridge = createMockCartridge(romData);
+      mmu.loadCartridge(mockCartridge);
+
+      // Test: MMU should track banking mode (MISSING FEATURE - WILL FAIL)
+      expect(mmu.getSnapshot()).toHaveProperty('bankingMode');
+      expect(mmu.getSnapshot().bankingMode).toBe(0); // Default simple mode
+
+      // Test: Write to 0x6000-0x7FFF should change banking mode (MISSING - WILL FAIL)
+      mmu.writeByte(0x6000, 0x01); // Switch to advanced banking
+      expect(mmu.getSnapshot().bankingMode).toBe(1); // Advanced mode
+
+      // Test: In advanced mode, 0x4000-0x5FFF should affect ROM bank, not RAM bank
+      mmu.writeByte(0x2000, 0x01); // Set lower ROM bank bits to 1
+      mmu.writeByte(0x4000, 0x01); // Set upper ROM bank bits to 1
+
+      // In advanced mode: ROM bank = (upper << 5) | lower = (1 << 5) | 1 = 33
+      // But this should be masked to available banks
+      expect(mmu.getSnapshot().currentROMBank).toBe(33); // Will likely fail due to missing implementation
+    });
+
+    it('should handle ROM bank 0 aliasing correctly', () => {
+      // RED PHASE: This test WILL FAIL until ROM bank 0 handling is implemented
+      // Test: Writing 0x00 to ROM bank select should alias to bank 1
+
+      const romData = new Uint8Array(65536); // 4 banks
+      const mockCartridge = createMockCartridge(romData);
+      mmu.loadCartridge(mockCartridge);
+
+      // Test: Writing 0x00 should result in bank 1 (hardware behavior)
+      mmu.writeByte(0x2000, 0x00);
+      expect(mmu.getSnapshot().currentROMBank).toBe(1);
+
+      // Test: Writing 0x20 (bit 5 set) should mask to bank 0 but alias to bank 1
+      mmu.writeByte(0x2000, 0x20);
+      expect(mmu.getSnapshot().currentROMBank).toBe(1);
     });
   });
 });

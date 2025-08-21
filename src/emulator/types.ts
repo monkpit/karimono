@@ -99,6 +99,13 @@ export interface CPUTestingComponent extends CPUComponent {
    * TODO: Remove when all tests use proper boundary observation patterns
    */
   getRegisters(): CPURegisters;
+
+  /**
+   * Get A register value (for test setup convenience)
+   * @deprecated Prefer getRegisters().a for clarity. To be removed.
+   */
+  getRegisterA(): number;
+
   // Register manipulation methods for testing
   /**
    * Set A register value (for test setup)
@@ -186,12 +193,19 @@ export interface CPURegisters {
   l: number;
   sp: number;
   pc: number;
+  setHL?: (value: number) => void; // Testing helper method
 }
 
 /**
  * PPU (Picture Processing Unit) component interface
  */
 export interface PPUComponent extends RunnableComponent {
+  /**
+   * Update PPU state for the given number of CPU cycles
+   * @param cycles Number of CPU cycles to advance PPU timing
+   */
+  step(cycles: number): void;
+
   /**
    * Render current frame to display
    */
@@ -201,6 +215,16 @@ export interface PPUComponent extends RunnableComponent {
    * Get current PPU mode
    */
   getMode(): PPUModeType;
+
+  /**
+   * Check if a frame is ready for rendering
+   */
+  isFrameReady(): boolean;
+
+  /**
+   * Get the current frame buffer (raw PPU data - will be processed by rendering pipeline)
+   */
+  getFrameBuffer(): Uint8Array | null;
 }
 
 /**
@@ -257,6 +281,8 @@ export interface MMUSnapshot {
   currentRAMBank: number;
   /** External cartridge RAM is currently enabled */
   ramEnabled: boolean;
+  /** MBC1 banking mode: 0 = simple banking, 1 = advanced banking */
+  bankingMode: number;
 }
 
 /**
@@ -301,6 +327,13 @@ export interface MMUComponent extends MemoryComponent {
    * @param interrupt Interrupt bit (0-4: VBlank, LCDC, Timer, Serial, Joypad)
    */
   requestInterrupt(interrupt: number): void;
+
+  /**
+   * Advance MMU timing by specified CPU cycles
+   * Updates LCD timing (LY register) and other hardware state
+   * @param cycles Number of CPU cycles to advance
+   */
+  step(cycles: number): void;
 }
 
 /**
@@ -351,6 +384,20 @@ export interface CartridgeComponent extends EmulatorComponent {
    * Get cartridge header information
    */
   getHeader(): CartridgeHeader;
+
+  /**
+   * Get current cartridge state for debugging and MMU snapshot
+   */
+  getState(): {
+    rom: Uint8Array;
+    ram: Uint8Array;
+    banking: {
+      currentROMBank: number;
+      currentRAMBank: number;
+      ramEnabled: boolean;
+      bankingMode: number;
+    };
+  };
 }
 
 /**

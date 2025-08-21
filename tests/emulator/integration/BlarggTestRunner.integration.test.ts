@@ -6,6 +6,7 @@
  */
 
 import { BlarggTestRunner } from '../../../src/emulator/testing/BlarggTestRunner';
+import { EmulatorContainer } from '../../../src/emulator/EmulatorContainer';
 import * as fs from 'fs';
 
 // Mock fs module for controlled testing
@@ -23,6 +24,7 @@ Object.defineProperty(global, 'HTMLElement', {
 
 describe('BlarggTestRunner', () => {
   let mockParentElement: HTMLElement;
+  let emulatorContainer: EmulatorContainer;
   let testRunner: BlarggTestRunner;
 
   beforeEach(() => {
@@ -48,8 +50,15 @@ describe('BlarggTestRunner', () => {
       })),
     } as any;
 
-    // Initialize test runner
-    testRunner = new BlarggTestRunner(mockParentElement);
+    // Initialize emulator container with dependency injection
+    emulatorContainer = new EmulatorContainer(mockParentElement, {
+      display: { width: 160, height: 144, scale: 1 },
+      debug: false,
+      frameRate: 60,
+    });
+
+    // Initialize test runner with injected emulator container
+    testRunner = new BlarggTestRunner(emulatorContainer);
   });
 
   afterEach(() => {
@@ -62,10 +71,16 @@ describe('BlarggTestRunner', () => {
       expect(testRunner).toBeInstanceOf(BlarggTestRunner);
     });
 
-    test('should throw error if Serial Interface not available', () => {
-      // This test would require mocking the EmulatorContainer to return undefined
-      // for getSerialInterface(). For simplicity, we'll test the current behavior
-      expect(() => new BlarggTestRunner(mockParentElement)).not.toThrow();
+    test('should initialize with dependency injection', () => {
+      expect(testRunner).toBeDefined();
+      expect(testRunner).toBeInstanceOf(BlarggTestRunner);
+    });
+
+    test('should create instance using factory method', () => {
+      const factoryRunner = BlarggTestRunner.create(mockParentElement);
+      expect(factoryRunner).toBeDefined();
+      expect(factoryRunner).toBeInstanceOf(BlarggTestRunner);
+      factoryRunner.dispose();
     });
   });
 
@@ -251,8 +266,13 @@ describe('BlarggTestRunner', () => {
     test('should be reusable after disposal', () => {
       testRunner.dispose();
 
-      // Should be able to create a new instance
-      const newRunner = new BlarggTestRunner(mockParentElement);
+      // Should be able to create a new instance with dependency injection
+      const newContainer = new EmulatorContainer(mockParentElement, {
+        display: { width: 160, height: 144, scale: 1 },
+        debug: false,
+        frameRate: 60,
+      });
+      const newRunner = new BlarggTestRunner(newContainer);
       expect(newRunner).toBeDefined();
       newRunner.dispose();
     });

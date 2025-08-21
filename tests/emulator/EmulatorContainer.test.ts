@@ -256,15 +256,28 @@ describe('EmulatorContainer', () => {
   describe('error handling', () => {
     it('should handle component initialization failures gracefully', () => {
       // Test error handling when canvas context cannot be obtained
-      const originalGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(null);
+      const originalCreateElement = document.createElement;
+
+      // Mock createElement to return a canvas that fails getContext
+      document.createElement = jest.fn((tagName: string) => {
+        if (tagName.toLowerCase() === 'canvas') {
+          const mockCanvas = {
+            width: 160,
+            height: 144,
+            style: {},
+            getContext: jest.fn().mockReturnValue(null),
+          };
+          return mockCanvas as any;
+        }
+        return originalCreateElement.call(document, tagName);
+      });
 
       expect(() => new EmulatorContainer(parentElement)).toThrow(
         'Failed to get 2D rendering context'
       );
 
-      // Restore original getContext
-      HTMLCanvasElement.prototype.getContext = originalGetContext;
+      // Restore original createElement
+      document.createElement = originalCreateElement;
     });
 
     it('should throw error when accessing uninitialized MMU', () => {

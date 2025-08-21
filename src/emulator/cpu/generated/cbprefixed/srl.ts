@@ -3,7 +3,7 @@
  * Generated SM83 CPU Instruction: SRL
  *
  * GENERATED CODE - DO NOT EDIT MANUALLY
- * Generated on: 2025-08-05T02:55:52.659Z
+ * Generated on: 2025-08-12T00:32:12.391Z
  * Source: tests/resources/opcodes.json
  * Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
  *

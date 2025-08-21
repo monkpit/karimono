@@ -1003,7 +1003,7 @@ describe('CPU Phase 1 Instructions', () => {
       expect(cpu.getRegisters().a).toBe(0x3f);
       expect(cpu.getZeroFlag()).toBe(false); // Z = 0 (result not zero)
       expect(cpu.getSubtractFlag()).toBe(true); // N = 1 (subtraction)
-      expect(cpu.getHalfCarryFlag()).toBe(false); // H = 0 (no borrow from bit 4: upper nibble 0x20 > 0x10)
+      expect(cpu.getHalfCarryFlag()).toBe(true); // H = 1 (borrow from bit 4: (0x0 - 0x0 - 1) < 0)
       expect(cpu.getCarryFlag()).toBe(false); // C = 0 (no borrow)
       expect(cycles).toBe(8); // Memory access takes 8 cycles
       expect(cpu.getPC()).toBe(0x9001);
@@ -1064,7 +1064,7 @@ describe('CPU Phase 1 Instructions', () => {
       expect(cpu.getRegisters().a).toBe(0x30);
       expect(cpu.getZeroFlag()).toBe(false); // Z = 0 (result not zero)
       expect(cpu.getSubtractFlag()).toBe(true); // N = 1 (subtraction)
-      expect(cpu.getHalfCarryFlag()).toBe(false); // H = 0 (no borrow from bit 4: upper nibble 0x50 > 0x10)
+      expect(cpu.getHalfCarryFlag()).toBe(true); // H = 1 (borrow from bit 4: (0x0 - 0xF - 1) < 0)
       expect(cpu.getCarryFlag()).toBe(false); // C = 0 (no borrow)
       expect(cycles).toBe(8); // Immediate operand takes 8 cycles
       expect(cpu.getPC()).toBe(0x8002);

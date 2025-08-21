@@ -2,7 +2,7 @@
  * Generated SM83 Instruction Map
  *
  * GENERATED CODE - DO NOT EDIT MANUALLY
- * Generated on: 2025-08-05T02:55:52.660Z
+ * Generated on: 2025-08-12T00:32:12.392Z
  * Source: tests/resources/opcodes.json
  *
  * Fast lookup map for all 512 SM83 CPU instructions.

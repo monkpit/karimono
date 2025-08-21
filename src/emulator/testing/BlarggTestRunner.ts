@@ -6,8 +6,7 @@
  */
 
 import { EmulatorContainer } from '../EmulatorContainer';
-import { CPUComponent, SerialInterfaceComponent, MMUComponent } from '../types';
-import { TestROMCartridge } from './TestROMCartridge';
+import { Cartridge } from '../cartridge';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -49,51 +48,44 @@ export interface BlarggTestSuiteResult {
 export class BlarggTestRunner {
   // Increased cycle limit for longer tests, sufficient for ~35 seconds at 4.194MHz
   private static readonly MAX_CYCLES = 150_000_000;
+  // High cycle limit for specific problematic ROMs that require more cycles (57-72M cycles observed)
+  private static readonly HIGH_CYCLE_LIMIT = 100_000_000;
   private static readonly COMPLETION_TIMEOUT_MS = 30_000; // 30 second timeout
+  private static readonly HIGH_CYCLE_TIMEOUT_MS = 120_000; // 2 minute timeout for high-cycle ROMs
   // Adjusted logging intervals for performance
   private static readonly CPU_STATE_LOG_INTERVAL = 10_000_000; // Log CPU state every 10M cycles
   private static readonly INSTRUCTION_DEBUG_INTERVAL = 1_000_000; // Log instruction state every 1M cycles for debugging
 
   private emulator: EmulatorContainer;
-  private serialInterface: SerialInterfaceComponent;
-  private mmu: MMUComponent;
-  private cpu: CPUComponent;
   private debug: boolean;
   private performanceMode: boolean;
   private instructionDebugMode: boolean = false;
   private lastSerialOutput: string = '';
   private instructionCount: number = 0;
 
-  constructor(parentElement: HTMLElement, debug = false, performanceMode = true) {
+  constructor(emulator: EmulatorContainer, debug = false, performanceMode = true) {
+    // Use injected emulator instead of creating new one
+    this.emulator = emulator;
+    this.debug = debug;
+    this.performanceMode = performanceMode;
+  }
+
+  /**
+   * Factory method to create BlarggTestRunner with EmulatorContainer
+   */
+  static create(
+    parentElement: HTMLElement,
+    debug = false,
+    performanceMode = true
+  ): BlarggTestRunner {
     // Initialize emulator with minimal configuration
-    this.emulator = new EmulatorContainer(parentElement, {
+    const emulator = new EmulatorContainer(parentElement, {
       display: { width: 160, height: 144, scale: 1 },
-      debug: true,
+      debug: debug,
       frameRate: 60,
     });
 
-    // Get required components
-    const serialInterface = this.emulator.getSerialInterface();
-    const mmu = this.emulator.getMMU();
-    const cpu = this.emulator.getCPU();
-
-    if (!serialInterface) {
-      throw new Error('Serial Interface component not available');
-    }
-
-    if (!mmu) {
-      throw new Error('MMU component not available');
-    }
-
-    if (!cpu) {
-      throw new Error('CPU component not available');
-    }
-
-    this.serialInterface = serialInterface;
-    this.mmu = mmu;
-    this.cpu = cpu;
-    this.debug = debug;
-    this.performanceMode = performanceMode;
+    return new BlarggTestRunner(emulator, debug, performanceMode);
   }
 
   /**
@@ -155,14 +147,18 @@ export class BlarggTestRunner {
   executeTest(romPath: string, expectedOutput?: string): BlarggTestResult {
     this.log(`Executing test: ${romPath}`);
 
-    // Enable instruction debugging for problematic test ROMs that were timing out
-    const problematicRoms = ['04-op r,imm', '05-op rp', '09-op r,r', '10-bit ops', '11-op a,(hl)'];
-    const isProblematicRom = problematicRoms.some(romName => romPath.includes(romName));
+    // Debug mode completely disabled for performance
+    // const problematicRoms = ['04-op r,imm', '05-op rp', '09-op r,r', '10-bit ops', '11-op a,(hl)'];
+    // const isProblematicRom = problematicRoms.some(romName => romPath.includes(romName));
 
-    if (isProblematicRom && !this.instructionDebugMode) {
-      this.log(`Enabling instruction debug mode for potentially problematic ROM: ${romPath}`);
-      this.enableInstructionDebug(true);
-    }
+    // Detect main ROM that runs all 20 tests and needs extended time/cycles
+    const isMainRom = romPath.includes('cpu_instrs.gb') && !romPath.includes('individual/');
+
+    // Debug mode disabled for performance - was causing massive console output
+    // if (isProblematicRom && !this.instructionDebugMode) {
+    //   this.log(`Enabling instruction debug mode for potentially problematic ROM: ${romPath}`);
+    //   this.enableInstructionDebug(true);
+    // }
 
     // Verify ROM file exists
     if (!fs.existsSync(romPath)) {
@@ -183,25 +179,34 @@ export class BlarggTestRunner {
 
       // Reset emulator state
       this.emulator.reset();
-      this.serialInterface.clearOutputBuffer();
+      const resetSerialInterface = this.emulator.getSerialInterface();
+      if (!resetSerialInterface) {
+        throw new Error('Serial Interface component not available');
+      }
+      resetSerialInterface.clearOutputBuffer();
 
-      // Create test cartridge and load ROM data
-      const testCartridge = new TestROMCartridge(new Uint8Array(romData));
-      this.mmu.loadCartridge(testCartridge);
+      // Create unified cartridge and load ROM data
+      const cartridge = new Cartridge(new Uint8Array(romData));
+      const mmu = this.emulator.getMMU();
+      mmu.loadCartridge(cartridge);
 
       // Set MMU to post-boot state to disable boot ROM and use cartridge
-      this.mmu.setPostBootState();
+      mmu.setPostBootState();
 
       // Start emulation
       this.emulator.start();
 
-      // Execute with cycle limit and timeout
-      const result = this.executeWithLimits();
+      // Execute with cycle limit and timeout - use high limits for main ROM
+      const result = this.executeWithLimits(isMainRom);
 
       this.emulator.stop();
 
       // Determine if test passed
-      const output = this.serialInterface.getOutputBuffer();
+      const resultSerialInterface = this.emulator.getSerialInterface();
+      if (!resultSerialInterface) {
+        throw new Error('Serial Interface component not available');
+      }
+      const output = resultSerialInterface.getOutputBuffer();
       const passed = this.evaluateTestResult(output, expectedOutput);
 
       this.log(`Test finished: ${romPath}`);
@@ -309,7 +314,12 @@ export class BlarggTestRunner {
    * @returns Captured serial output
    */
   captureSerialOutput(maxCycles: number): string {
-    this.serialInterface.clearOutputBuffer();
+    const serialInterface = this.emulator.getSerialInterface();
+    if (!serialInterface) {
+      throw new Error('Serial Interface component not available');
+    }
+
+    serialInterface.clearOutputBuffer();
 
     const startTime = Date.now();
     let cyclesExecuted = 0;
@@ -317,7 +327,7 @@ export class BlarggTestRunner {
     while (cyclesExecuted < maxCycles) {
       // In a real implementation, this would step the CPU
       // For now, we simulate by advancing serial interface timing
-      this.serialInterface.step(100); // Step 100 cycles at a time
+      serialInterface.step(100); // Step 100 cycles at a time
       cyclesExecuted += 100;
 
       // Check for timeout
@@ -326,22 +336,42 @@ export class BlarggTestRunner {
       }
     }
 
-    return this.serialInterface.getOutputBuffer();
+    return serialInterface.getOutputBuffer();
   }
 
   /**
    * Execute emulation with cycle and time limits
+   * @param useHighCycleLimits Whether to use extended cycle and timeout limits for high-cycle ROMs
    * @returns Execution result with cycle count and potential failure reason
    */
-  private executeWithLimits(): { cycles: number; failureReason?: string } {
+  private executeWithLimits(useHighCycleLimits = false): {
+    cycles: number;
+    failureReason?: string;
+  } {
     const startTime = Date.now();
     let cyclesExecuted = 0;
     let lastCpuStateLog = 0;
     let lastInstructionDebugLog = 0;
 
+    // Use appropriate limits based on ROM requirements
+    const maxCycles = useHighCycleLimits
+      ? BlarggTestRunner.HIGH_CYCLE_LIMIT
+      : BlarggTestRunner.MAX_CYCLES;
+    const timeoutMs = useHighCycleLimits
+      ? BlarggTestRunner.HIGH_CYCLE_TIMEOUT_MS
+      : BlarggTestRunner.COMPLETION_TIMEOUT_MS;
+
+    this.log(
+      `Using ${useHighCycleLimits ? 'HIGH' : 'STANDARD'} cycle limits: maxCycles=${maxCycles}, timeoutMs=${timeoutMs}`
+    );
+
     // Reset debug state
     this.instructionCount = 0;
-    this.lastSerialOutput = this.serialInterface.getOutputBuffer();
+    const serialInterface = this.emulator.getSerialInterface();
+    if (!serialInterface) {
+      throw new Error('Serial Interface component not available');
+    }
+    this.lastSerialOutput = serialInterface.getOutputBuffer();
 
     // Infinite loop detection variables
     let lastPC = -1;
@@ -353,9 +383,10 @@ export class BlarggTestRunner {
       this.log('Starting instruction-level debugging mode');
     }
 
-    while (cyclesExecuted < BlarggTestRunner.MAX_CYCLES) {
+    while (cyclesExecuted < maxCycles) {
       // Get current PC for loop detection
-      const debugInfo = this.cpu.getDebugInfo();
+      const cpu = this.emulator.getCPU();
+      const debugInfo = cpu.getDebugInfo();
       const currentPC = this.extractPCFromDebugInfo(debugInfo);
 
       // Track PC stall for infinite loop detection
@@ -367,7 +398,7 @@ export class BlarggTestRunner {
       }
 
       // Check for infinite loop - only after we've detected test completion
-      const output = this.serialInterface.getOutputBuffer();
+      const output = serialInterface.getOutputBuffer();
       const testCompleteDetected = this.isTestComplete(output);
 
       if (testCompleteDetected && !loopDetectionActive) {
@@ -390,11 +421,12 @@ export class BlarggTestRunner {
       let preStepState = '';
       let opcode = 0x00;
       if (this.instructionDebugMode && !this.performanceMode) {
-        preStepState = this.cpu.getDebugInfo();
+        preStepState = cpu.getDebugInfo();
         // Try to get the opcode that will be executed
         try {
-          const pc = this.cpu.getPC();
-          opcode = this.mmu.readByte(pc);
+          const pc = cpu.getPC();
+          const mmu = this.emulator.getMMU();
+          opcode = mmu.readByte(pc);
         } catch {
           // If we can't read the opcode, use 0x00
           opcode = 0x00;
@@ -403,18 +435,20 @@ export class BlarggTestRunner {
 
       // Step emulation and get actual CPU cycles
       const actualCycles = this.emulator.step();
-      this.serialInterface.step(actualCycles); // Use actual CPU cycles
+      serialInterface.step(actualCycles); // Use actual CPU cycles
 
       // Also step MMU for LY register timing, skip in performance mode
-      if (
-        !this.performanceMode &&
-        this.mmu &&
-        'step' in this.mmu &&
-        // eslint-disable-next-line no-unused-vars
-        typeof (this.mmu as { step: (cycles: number) => void }).step === 'function'
-      ) {
-        // eslint-disable-next-line no-unused-vars
-        (this.mmu as { step: (cycles: number) => void }).step(actualCycles);
+      if (!this.performanceMode) {
+        const mmu = this.emulator.getMMU();
+        if (
+          mmu &&
+          'step' in mmu &&
+          // eslint-disable-next-line no-unused-vars
+          typeof (mmu as { step: (stepCycles: number) => void }).step === 'function'
+        ) {
+          // eslint-disable-next-line no-unused-vars
+          (mmu as { step: (stepCycles: number) => void }).step(actualCycles);
+        }
       }
 
       cyclesExecuted += actualCycles;
@@ -426,8 +460,8 @@ export class BlarggTestRunner {
         this.instructionDebugMode &&
         cyclesExecuted - lastInstructionDebugLog >= BlarggTestRunner.INSTRUCTION_DEBUG_INTERVAL
       ) {
-        const postStepState = this.cpu.getDebugInfo();
-        const currentSerialOutput = this.serialInterface.getOutputBuffer();
+        const postStepState = cpu.getDebugInfo();
+        const currentSerialOutput = serialInterface.getOutputBuffer();
         this.logInstructionDebug(opcode, preStepState, postStepState, currentSerialOutput);
         lastInstructionDebugLog = cyclesExecuted;
       }
@@ -443,10 +477,10 @@ export class BlarggTestRunner {
       }
 
       // Check for timeout
-      if (Date.now() - startTime > BlarggTestRunner.COMPLETION_TIMEOUT_MS) {
+      if (Date.now() - startTime > timeoutMs) {
         const failureReason = 'Test execution timeout';
         this.log(failureReason);
-        this.log(`CPU state at timeout: ${this.cpu.getDebugInfo()}`);
+        this.log(`CPU state at timeout: ${cpu.getDebugInfo()}`);
         return {
           cycles: cyclesExecuted,
           failureReason,
@@ -460,14 +494,15 @@ export class BlarggTestRunner {
         cyclesExecuted - lastCpuStateLog >= BlarggTestRunner.CPU_STATE_LOG_INTERVAL
       ) {
         this.log(`CPU state at ${cyclesExecuted} cycles:`);
-        this.log(this.cpu.getDebugInfo());
+        this.log(cpu.getDebugInfo());
         lastCpuStateLog = cyclesExecuted;
       }
     }
 
     const failureReason = 'Maximum cycle limit reached';
     this.log(failureReason);
-    this.log(`CPU state at max cycles: ${this.cpu.getDebugInfo()}`);
+    const cpu = this.emulator.getCPU();
+    this.log(`CPU state at max cycles: ${cpu.getDebugInfo()}`);
     return {
       cycles: cyclesExecuted,
       failureReason,
@@ -490,13 +525,32 @@ export class BlarggTestRunner {
 
   /**
    * Check if test execution is complete based on output patterns
-   * Enhanced to handle individual Blargg test ROM completion patterns
+   * Enhanced to handle both main ROM and individual Blargg test ROM completion patterns
    * @param output Serial output to analyze
    * @returns Whether test appears complete
    */
   private isTestComplete(output: string): boolean {
     // Standard completion patterns
     const standardPatterns = ['Passed', 'Failed', 'Done', 'All tests passed', 'Test completed'];
+
+    // Check for standard completion patterns first
+    const hasStandardCompletion = standardPatterns.some(pattern =>
+      output.toLowerCase().includes(pattern.toLowerCase())
+    );
+
+    if (hasStandardCompletion) {
+      return true;
+    }
+
+    // Main cpu_instrs.gb ROM completion pattern: The main ROM has 20+ tests, not just 11
+    // According to readme: "Once all tests have completed it either reports that all
+    // tests passed, or prints the number of failed tests."
+    // So we should only rely on the standard completion patterns for the main ROM
+    if (output.includes('cpu_instrs')) {
+      // Only rely on standard completion messages like "Passed", "all tests passed", etc.
+      // Don't assume completion based on test numbers since main ROM has more than 11 tests
+      return false;
+    }
 
     // Individual test ROM patterns - these tests output their name followed by completion
     const individualTestPatterns = [
@@ -512,15 +566,6 @@ export class BlarggTestRunner {
       '07-jr,jp,call,ret,rst',
       '08-misc instrs',
     ];
-
-    // Check for standard completion patterns first
-    const hasStandardCompletion = standardPatterns.some(pattern =>
-      output.toLowerCase().includes(pattern.toLowerCase())
-    );
-
-    if (hasStandardCompletion) {
-      return true;
-    }
 
     // For individual test ROMs, check if we have the test name and signs of completion
     // Many Blargg tests output: "Test Name\n\n\nPassed" or similar
@@ -556,6 +601,21 @@ export class BlarggTestRunner {
 
     if (failurePatterns.some(pattern => output.toLowerCase().includes(pattern.toLowerCase()))) {
       return false;
+    }
+
+    // Special case for main cpu_instrs.gb ROM - it shows "01:ok ... 11:ok" pattern
+    if (output.includes('cpu_instrs')) {
+      // Main ROM passes if it shows all tests 01-11 as ok and doesn't go beyond
+      const hasAllMainTests =
+        /01:ok.*?02:ok.*?03:ok.*?04:ok.*?05:ok.*?06:ok.*?07:ok.*?08:ok.*?09:ok.*?10:ok.*?11:ok/.test(
+          output.replace(/\s+/g, ' ')
+        );
+
+      if (hasAllMainTests) {
+        // Make sure it doesn't continue beyond test 11 (which would indicate a problem)
+        const continuesBeyond11 = /1[2-9]:ok|2[0-9]:ok/.test(output);
+        return !continuesBeyond11;
+      }
     }
 
     // Check for success patterns

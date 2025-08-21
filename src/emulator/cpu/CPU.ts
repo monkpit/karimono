@@ -12,6 +12,7 @@
  */
 
 import { CPUTestingComponent, CPURegisters, MMUComponent } from '../types';
+import { GameBoyDoctor } from '../debug/GameBoyDoctor';
 
 /**
  * SM83 CPU Component Implementation
@@ -24,9 +25,12 @@ export class CPU implements CPUTestingComponent {
   private halted = false;
   private ime = false; // Interrupt Master Enable
   private ime_pending_enable = false; // EI instruction has 1-cycle delay
+  private if_write_delay = false; // IF register write delays interrupt checking by 1 cycle
+  private gameBoyDoctor: GameBoyDoctor;
 
   constructor(mmu: MMUComponent) {
     this.mmu = mmu;
+    this.gameBoyDoctor = new GameBoyDoctor();
 
     // Initialize registers to DMG post-boot state per ADR-001
     this.registers = {
@@ -61,6 +65,7 @@ export class CPU implements CPUTestingComponent {
     this.halted = false;
     this.ime = false;
     this.ime_pending_enable = false;
+    this.if_write_delay = false;
 
     // Reset to DMG post-boot state
     this.registers = {
@@ -79,21 +84,47 @@ export class CPU implements CPUTestingComponent {
 
   // CPUComponent interface implementation
   step(): number {
-    // Handle pending IME enable from EI instruction
-    if (this.ime_pending_enable) {
-      this.ime = true;
-      this.ime_pending_enable = false;
-    }
+    // Log CPU state before instruction execution for Game Boy Doctor
+    this.gameBoyDoctor.logState(this.registers, this.mmu);
 
-    // Check for and service interrupts
-    const interruptCycles = this.handleInterrupts();
-    if (interruptCycles > 0) {
-      // An interrupt was serviced, consuming cycles
-      return interruptCycles;
-    }
-
-    // If halted, CPU does not execute instructions but still consumes cycles
+    // If halted, CPU does not execute instructions but still needs to check interrupts
     if (this.halted) {
+      // Check for interrupts even when halted (to potentially exit HALT mode)
+      let interruptCycles = 0;
+      if (!this.if_write_delay) {
+        interruptCycles = this.handleInterrupts();
+      }
+      // Always clear the delay flag after checking (or skipping)
+      this.if_write_delay = false;
+
+      if (interruptCycles > 0) {
+        // Interrupt was serviced, CPU is no longer halted
+        // Update MMU timing for interrupt handling cycles
+        this.mmu.step(interruptCycles);
+
+        // CRITICAL: Execute one instruction at the interrupt vector in the same step
+        const vectorOpcode = this.mmu.readByte(this.registers.pc);
+        this.registers.pc = (this.registers.pc + 1) & 0xffff;
+        const vectorInstructionCycles = this.executeInstruction(vectorOpcode);
+        this.mmu.step(vectorInstructionCycles);
+
+        // Handle pending IME enable from EI instruction AFTER interrupt handling
+        if (this.ime_pending_enable) {
+          this.ime = true;
+          this.ime_pending_enable = false;
+        }
+
+        return interruptCycles + vectorInstructionCycles; // Return total interrupt cycles
+      }
+
+      // Still halted, handle pending IME enable from EI instruction
+      if (this.ime_pending_enable) {
+        this.ime = true;
+        this.ime_pending_enable = false;
+      }
+
+      // Update MMU timing for halt cycles
+      this.mmu.step(4);
       return 4; // HALT consumes 4 cycles per step when halted
     }
 
@@ -103,8 +134,51 @@ export class CPU implements CPUTestingComponent {
     // Increment PC after instruction fetch, before execution (hardware behavior)
     this.registers.pc = (this.registers.pc + 1) & 0xffff;
 
-    // Execute instruction and return cycle count
-    return this.executeInstruction(opcode);
+    // Execute instruction and get cycle count
+    const cycles = this.executeInstruction(opcode);
+
+    // Update MMU timing for instruction execution cycles
+    this.mmu.step(cycles);
+
+    // Handle pending IME enable from EI instruction AFTER instruction execution
+    // This ensures the 1-instruction delay: EI → instruction → IME becomes active
+    if (this.ime_pending_enable) {
+      this.ime = true;
+      this.ime_pending_enable = false;
+    }
+
+    // HARDWARE CORRECT: Check for and service interrupts AFTER instruction execution
+    // Skip interrupt checking if IF was written in previous cycle (1-cycle delay)
+    let interruptCycles = 0;
+    if (!this.if_write_delay) {
+      interruptCycles = this.handleInterrupts();
+    }
+    // Always clear the delay flag after checking (or skipping)
+    this.if_write_delay = false;
+
+    if (interruptCycles > 0) {
+      // An interrupt was serviced, consuming additional cycles
+      // Update MMU timing for interrupt handling cycles
+      this.mmu.step(interruptCycles);
+
+      // CRITICAL: Execute one instruction at the interrupt vector in the same step
+      // This is required for both LDH IF bug test and Game Boy Doctor ROM 2 compatibility
+      const vectorOpcode = this.mmu.readByte(this.registers.pc);
+      this.registers.pc = (this.registers.pc + 1) & 0xffff;
+      const vectorInstructionCycles = this.executeInstruction(vectorOpcode);
+      this.mmu.step(vectorInstructionCycles);
+
+      // Handle pending IME enable from EI instruction AFTER interrupt handling
+      // This ensures the 1-instruction delay: EI → instruction → IME becomes active
+      if (this.ime_pending_enable) {
+        this.ime = true;
+        this.ime_pending_enable = false;
+      }
+
+      return cycles + interruptCycles + vectorInstructionCycles; // Return total cycles: instruction + interrupt + vector
+    }
+
+    return cycles;
   }
 
   getPC(): number {
@@ -112,11 +186,120 @@ export class CPU implements CPUTestingComponent {
   }
 
   getRegisters(): CPURegisters {
-    return { ...this.registers }; // Return copy to prevent external mutation
+    const self = this;
+    return {
+      get a(): number {
+        return self.registers.a;
+      },
+      set a(value: number) {
+        self.registers.a = value;
+      },
+      get b(): number {
+        return self.registers.b;
+      },
+      set b(value: number) {
+        self.registers.b = value;
+      },
+      get c(): number {
+        return self.registers.c;
+      },
+      set c(value: number) {
+        self.registers.c = value;
+      },
+      get d(): number {
+        return self.registers.d;
+      },
+      set d(value: number) {
+        self.registers.d = value;
+      },
+      get e(): number {
+        return self.registers.e;
+      },
+      set e(value: number) {
+        self.registers.e = value;
+      },
+      get f(): number {
+        return self.registers.f;
+      },
+      set f(value: number) {
+        self.registers.f = value;
+      },
+      get h(): number {
+        return self.registers.h;
+      },
+      set h(value: number) {
+        self.registers.h = value;
+      },
+      get l(): number {
+        return self.registers.l;
+      },
+      set l(value: number) {
+        self.registers.l = value;
+      },
+      get sp(): number {
+        return self.registers.sp;
+      },
+      set sp(value: number) {
+        self.registers.sp = value;
+      },
+      get pc(): number {
+        return self.registers.pc;
+      },
+      set pc(value: number) {
+        self.registers.pc = value;
+      },
+      setHL: (value: number) => self.setHL(value),
+    };
+  }
+
+  // Testing interface method - executes instruction at current PC
+  executeInstructionFromPC(): number {
+    // Fetch instruction at current PC
+    const opcode = this.mmu.readByte(this.registers.pc);
+    // Advance PC
+    this.registers.pc = (this.registers.pc + 1) & 0xffff;
+    // Execute instruction and return cycle count
+    return this.executeInstruction(opcode);
   }
 
   isHalted(): boolean {
     return this.halted;
+  }
+
+  // Game Boy Doctor diagnostic methods
+  enableGameBoyDoctor(outputFile?: string): void {
+    this.gameBoyDoctor.enable(outputFile);
+  }
+
+  disableGameBoyDoctor(): void {
+    this.gameBoyDoctor.disable();
+  }
+
+  getGameBoyDoctorLogs(): string[] {
+    return this.gameBoyDoctor.getLogs();
+  }
+
+  saveGameBoyDoctorLogs(): void {
+    this.gameBoyDoctor.saveLogs();
+  }
+
+  clearGameBoyDoctorLogs(): void {
+    this.gameBoyDoctor.clearLogs();
+  }
+
+  // Testing method to set IME flag directly
+  setIME(value: boolean): void {
+    this.ime = value;
+  }
+
+  // Testing method to get IME flag directly
+  getIME(): boolean {
+    return this.ime;
+  }
+
+  // Called by MMU when IF register is written manually (not by hardware)
+  notifyIFWritten(): void {
+    this.if_write_delay = true;
   }
 
   // Full interrupt handling is now implemented via the handleInterrupts() method.
@@ -527,6 +710,13 @@ export class CPU implements CPUTestingComponent {
     return (this.registers.f & 0x10) !== 0;
   }
 
+  /**
+   * @deprecated Prefer getRegisters().a for clarity. To be removed.
+   */
+  getRegisterA(): number {
+    return this.registers.a;
+  }
+
   // Register manipulation methods for testing
   setRegisterA(value: number): void {
     this.registers.a = value & 0xff;
@@ -604,6 +794,58 @@ export class CPU implements CPUTestingComponent {
     } else {
       this.registers.f &= ~0x10;
     }
+  }
+
+  /**
+   * Private helper for 16-bit ADD operations on HL.
+   * Handles hardware-accurate flag calculations for N, H, and C.
+   * Z flag is unaffected by these instructions.
+   * @param value The 16-bit value to add to HL.
+   */
+  private _addHL(value: number): void {
+    const hl = this.getHL();
+    const result = hl + value;
+
+    // N flag is always reset
+    this.setSubtractFlag(false);
+
+    // H flag: Set if carry from bit 11 to bit 12
+    const halfCarry = (hl & 0x0fff) + (value & 0x0fff) > 0x0fff;
+    this.setHalfCarryFlag(halfCarry);
+
+    // C flag: Set if carry from bit 15
+    const carry = result > 0xffff;
+    this.setCarryFlag(carry);
+
+    // Set the new HL value
+    this.setHL(result & 0xffff);
+  }
+
+  /**
+   * Private helper for SBC A,n operations.
+   * Handles hardware-accurate flag calculations for Z, N, H, and C.
+   * @param value The 8-bit value to subtract from A with carry.
+   */
+  private _sbc(value: number): void {
+    const a = this.registers.a;
+    const carry = this.getCarryFlag() ? 1 : 0;
+    const result = a - value - carry;
+
+    this.registers.a = result & 0xff;
+
+    // Z flag: Set if result is 0
+    this.setZeroFlag((result & 0xff) === 0);
+
+    // N flag: Always set for subtraction
+    this.setSubtractFlag(true);
+
+    // H flag: Set if borrow from bit 4 (RGBDS-compliant half-borrow calculation)
+    const halfCarry = (a & 0x0f) - (value & 0x0f) - carry < 0;
+    this.setHalfCarryFlag(halfCarry);
+
+    // C flag: Set if borrow (result is negative)
+    const fullCarry = result < 0;
+    this.setCarryFlag(fullCarry);
   }
 
   /**
@@ -1764,15 +2006,11 @@ export class CPU implements CPUTestingComponent {
         return this.executeEI();
 
       default: {
-        // Log detailed error for unimplemented opcodes to aid debugging
+        // Unimplemented opcode - throw error immediately for performance
         const pc_at_fault = this.registers.pc - 1; // PC has already been incremented
-        // eslint-disable-next-line no-console
-        console.error(
-          `Unimplemented opcode: 0x${opcode.toString(16).toUpperCase()} at PC: 0x${pc_at_fault.toString(16).toUpperCase()}`
+        throw new Error(
+          `Invalid opcode: 0x${opcode.toString(16).toUpperCase()} at PC: 0x${pc_at_fault.toString(16).toUpperCase()}`
         );
-        // eslint-disable-next-line no-console
-        console.error(`CPU State: ${this.getDebugInfo()}`);
-        throw new Error(`Invalid opcode: 0x${opcode.toString(16).toUpperCase()}`);
       }
     }
   }
@@ -5678,22 +5916,8 @@ export class CPU implements CPUTestingComponent {
    * RGBDS Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
    */
   private executeADDHLBC09(): number {
-    // ADD HL,BC - Add BC register pair to HL with 16-bit flag calculation
-    const hl = this.getHL();
-    const bc = this.getBC();
-    const result = hl + bc;
-
-    // Update HL register pair
-    this.setHL(result & 0xffff);
-
-    // Calculate and set flags (Z flag preserved for 16-bit ADD)
-    this.setSubtractFlag(false); // N always 0 for ADD
-    // Half-carry: Set if overflow from bit 11 (RGBDS specification)
-    // GameBoy Online approach: check if lower 12 bits wrapped around
-    this.setHalfCarryFlag((hl & 0x0fff) > (result & 0x0fff));
-    this.setCarryFlag(result > 0xffff);
-
-    return 8; // 16-bit addition takes 8 cycles
+    this._addHL(this.getBC());
+    return 8;
   }
 
   /**
@@ -5702,22 +5926,8 @@ export class CPU implements CPUTestingComponent {
    * RGBDS Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
    */
   private executeADDHLDE19(): number {
-    // ADD HL,DE - Add DE register pair to HL with 16-bit flag calculation
-    const hl = this.getHL();
-    const de = this.getDE();
-    const result = hl + de;
-
-    // Update HL register pair
-    this.setHL(result & 0xffff);
-
-    // Calculate and set flags (Z flag preserved for 16-bit ADD)
-    this.setSubtractFlag(false); // N always 0 for ADD
-    // Half-carry: Set if overflow from bit 11 (RGBDS specification)
-    // GameBoy Online approach: check if lower 12 bits wrapped around
-    this.setHalfCarryFlag((hl & 0x0fff) > (result & 0x0fff));
-    this.setCarryFlag(result > 0xffff);
-
-    return 8; // 16-bit addition takes 8 cycles
+    this._addHL(this.getDE());
+    return 8;
   }
 
   /**
@@ -5726,21 +5936,8 @@ export class CPU implements CPUTestingComponent {
    * RGBDS Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
    */
   private executeADDHLHL29(): number {
-    // ADD HL,HL - Add HL register pair to itself with 16-bit flag calculation
-    const hl = this.getHL();
-    const result = hl + hl;
-
-    // Update HL register pair
-    this.setHL(result & 0xffff);
-
-    // Calculate and set flags (Z flag preserved for 16-bit ADD)
-    this.setSubtractFlag(false); // N always 0 for ADD
-    // Half-carry: Set if overflow from bit 11 (RGBDS specification)
-    // GameBoy Online approach: check if lower 12 bits wrapped around
-    this.setHalfCarryFlag((hl & 0x0fff) > (result & 0x0fff));
-    this.setCarryFlag(result > 0xffff);
-
-    return 8; // 16-bit addition takes 8 cycles
+    this._addHL(this.getHL());
+    return 8;
   }
 
   /**
@@ -5749,22 +5946,8 @@ export class CPU implements CPUTestingComponent {
    * RGBDS Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
    */
   private executeADDHLSP39(): number {
-    // ADD HL,SP - Add SP register to HL with 16-bit flag calculation
-    const hl = this.getHL();
-    const sp = this.registers.sp;
-    const result = hl + sp;
-
-    // Update HL register pair
-    this.setHL(result & 0xffff);
-
-    // Calculate and set flags (Z flag preserved for 16-bit ADD)
-    this.setSubtractFlag(false); // N always 0 for ADD
-    // Half-carry: Set if overflow from bit 11 (RGBDS specification)
-    // GameBoy Online approach: check if lower 12 bits wrapped around
-    this.setHalfCarryFlag((hl & 0x0fff) > (result & 0x0fff));
-    this.setCarryFlag(result > 0xffff);
-
-    return 8; // 16-bit addition takes 8 cycles
+    this._addHL(this.registers.sp);
+    return 8;
   }
 
   /**
@@ -6214,25 +6397,10 @@ export class CPU implements CPUTestingComponent {
    * Phase 4 implementation
    */
   private executeSBCAn8DE(): number {
-    // SBC A,n8 - Subtract immediate value and carry from A with flag calculation
-    const a = this.registers.a;
-    const value = this.mmu.readByte(this.registers.pc);
+    const immediate = this.mmu.readByte(this.registers.pc);
     this.registers.pc = (this.registers.pc + 1) & 0xffff;
-    const carry = this.getCarryFlag() ? 1 : 0;
-    const result = a - value - carry;
-
-    // Update A register (handle underflow)
-    this.registers.a = result & 0xff;
-
-    // Calculate and set flags
-    this.setZeroFlag((result & 0xff) === 0);
-    this.setSubtractFlag(true); // N flag always set for SBC
-    // H flag: set if borrow from bit 4 (upper nibble underflows when lower needs borrow)
-    const halfCarry = (a & 0x0f) < (value & 0x0f) + carry && (a & 0xf0) <= (value & 0xf0);
-    this.setHalfCarryFlag(halfCarry);
-    this.setCarryFlag(result < 0); // C flag set if borrow occurred
-
-    return 8; // Immediate operand takes 8 cycles
+    this._sbc(immediate);
+    return 8;
   }
 
   // ===== PHASE 6: INC/DEC INSTRUCTION IMPLEMENTATIONS =====
@@ -6692,12 +6860,16 @@ export class CPU implements CPUTestingComponent {
       // PC has already been advanced by 2 (opcode + offset byte)
       const targetAddress = (this.registers.pc + signedOffset) & 0xffff;
 
+      // Removed debug logging
+
       // Jump to target address
       this.registers.pc = targetAddress;
 
       // JR instructions do not affect any flags per RGBDS specification
       return 12; // Taken branch takes 12 cycles
     }
+
+    // Removed debug logging
 
     // JR instructions do not affect any flags per RGBDS specification
     return 8; // Not taken branch takes 8 cycles
@@ -7348,6 +7520,9 @@ export class CPU implements CPUTestingComponent {
   private executeCPAHLBE(): number {
     const address = (this.registers.h << 8) | this.registers.l;
     const value = this.mmu.readByte(address);
+
+    // Removed debug logging
+
     const result = this.registers.a - value;
     this.setZeroFlag(result === 0);
     this.setSubtractFlag(true);
@@ -7375,14 +7550,32 @@ export class CPU implements CPUTestingComponent {
    * CP A,n8 (0xFE) - Compare A register with immediate value
    * Hardware: 2 bytes, 8 cycles, Z/N/H/C flags affected
    * RGBDS Reference: https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7 - CP A,n8
+   *
+   * Operation: Performs (A - n8) and sets flags, but discards result.
+   * A register is NOT modified.
+   *
+   * Flags:
+   * - Z: Set if A == n8 (result is 0)
+   * - N: Always set (subtraction operation)
+   * - H: Set if borrow from bit 4 (lower nibble A < lower nibble n8)
+   * - C: Set if borrow from bit 8 (A < n8)
    */
   private executeCPAn8FE(): number {
     const value = this.mmu.readByte(this.registers.pc);
     this.registers.pc = (this.registers.pc + 1) & 0xffff;
+
+    // Perform comparison (A - value) and set flags
+    // Note: A register is NOT modified, only flags are set
+
     const result = this.registers.a - value;
     this.setZeroFlag(result === 0);
     this.setSubtractFlag(true);
-    this.setHalfCarryFlag((this.registers.a & 0x0f) - (value & 0x0f) < 0);
+
+    // H flag: Set if borrow from bit 4 (lower nibble comparison)
+    // Fixed: Use comparison instead of subtraction for half-carry
+    this.setHalfCarryFlag((this.registers.a & 0x0f) < (value & 0x0f));
+
+    // C flag: Set if borrow from bit 8 (unsigned comparison)
     this.setCarryFlag(this.registers.a < value);
     return 8;
   }
@@ -7687,8 +7880,7 @@ export class CPU implements CPUTestingComponent {
    * 2. Jump to return address
    * 3. Enable interrupts (set IME flag)
    *
-   * Note: IME (Interrupt Master Enable) flag handling will be implemented
-   * when interrupt system is added. For now, behaves like RET.
+   * Note: Properly enables interrupts (IME flag) immediately after return.
    */
   private executeRETI(): number {
     // Pop return address from stack (same as RET)
@@ -7700,8 +7892,9 @@ export class CPU implements CPUTestingComponent {
     const returnAddress = (highByte << 8) | lowByte;
     this.registers.pc = returnAddress;
 
-    // TODO: Set IME flag when interrupt system is implemented
-    // For now, this behaves identically to RET
+    // Enable interrupts immediately (unlike EI which has 1-cycle delay)
+    this.ime = true;
+    this.ime_pending_enable = false; // Cancel any pending EI
 
     return 16;
   }

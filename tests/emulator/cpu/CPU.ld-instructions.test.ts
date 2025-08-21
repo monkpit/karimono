@@ -606,6 +606,122 @@ describe('SM83 CPU LD Instructions - Phase 2', () => {
       expect(cpu.getRegisters().f).toBe(0xb0); // No flag changes
     });
 
+    test('LD A,(HL+) (0x2A) Game Boy Doctor failure case - should load 0x23 not 0xB1', () => {
+      // RED PHASE: This test WILL FAIL with current implementation producing A=0xB1 instead of A=0x23
+      // Bug Context: Game Boy Doctor trace shows our emulator produces wrong value
+      // Expected behavior: Read byte from memory at HL into A, then increment HL
+      //
+      // CRITICAL BUG IDENTIFIED:
+      // Generated function executeLDAHL2A() in generated/unprefixed/ld.ts is MISSING HL increment!
+      // It only reads from HL but doesn't increment it, treating 0x2A like LD A,(HL) instead of LD A,(HL+)
+      //
+      // Game Boy Doctor trace:
+      // Before: A:21 H:42 L:44 (HL=0x4244)
+      // Expected after: A:23 HL:4245
+      // Actual: A:B1 (WRONG! - possibly from wrong memory address due to missing increment)
+      //
+      // Hardware Reference: RGBDS GBZ80 Reference https://rgbds.gbdev.io/docs/v0.9.4/gbz80.7
+      // LD A,(HL+) - Load value from memory at HL into A, then increment HL
+
+      // Setup exact Game Boy Doctor failure scenario
+      mmu.writeByte(0x4244, 0x23); // Place expected value 0x23 at memory address 0x4244
+      cpu.setRegisterA(0x21); // Initial A register value from trace
+      cpu.setRegisterH(0x42); // Initial H register value from trace
+      cpu.setRegisterL(0x44); // Initial L register value from trace
+      cpu.setProgramCounter(0x8000);
+      mmu.writeByte(0x8000, 0x2a); // LD A,(HL+) opcode
+
+      // Store initial register state for isolation verification
+      const initialRegisters = cpu.getRegisters();
+
+      // Execute LD A,(HL+) instruction
+      const cycles = cpu.step();
+
+      // CRITICAL VERIFICATION: HL MUST be incremented for this to be LD A,(HL+) not LD A,(HL)
+      const finalHL = (cpu.getRegisters().h << 8) | cpu.getRegisters().l;
+
+      if (finalHL === 0x4244) {
+        throw new Error(
+          'CRITICAL BUG: HL was not incremented! ' +
+            'This proves the generated executeLDAHL2A() function is being used instead of executeLDAHLI2A(). ' +
+            'The instruction 0x2A is LD A,(HL+) which MUST increment HL, but HL remained 0x4244.'
+        );
+      }
+
+      // Verify exact behavior from Game Boy Doctor trace
+      expect(cpu.getRegisters().a).toBe(0x23); // A should be loaded with 0x23 from memory[0x4244]
+      expect(cpu.getRegisters().h).toBe(0x42); // H should remain 0x42 after increment from 0x44 to 0x45
+      expect(cpu.getRegisters().l).toBe(0x45); // L should increment: 0x44 + 1 = 0x45
+
+      // Verify HL register pair is correctly incremented: 0x4244 -> 0x4245
+      expect(finalHL).toBe(0x4245);
+
+      // Verify instruction timing and control flow
+      expect(cycles).toBe(8); // LD A,(HL+) takes 8 cycles
+      expect(cpu.getPC()).toBe(0x8001); // PC should advance by 1 byte
+
+      // Verify flags remain unchanged (LD instructions don't affect flags except LD HL,SP+e8)
+      expect(cpu.getRegisters().f).toBe(initialRegisters.f);
+
+      // Verify no other registers were modified
+      expect(cpu.getRegisters().b).toBe(initialRegisters.b);
+      expect(cpu.getRegisters().c).toBe(initialRegisters.c);
+      expect(cpu.getRegisters().d).toBe(initialRegisters.d);
+      expect(cpu.getRegisters().e).toBe(initialRegisters.e);
+      expect(cpu.getRegisters().sp).toBe(initialRegisters.sp);
+    });
+
+    test('LD A,(HL+) (0x2A) - Comprehensive test to verify increment behavior', () => {
+      // RED PHASE: This test will expose if wrong implementation is being used
+      // This test specifically verifies the increment behavior that distinguishes LD A,(HL+) from LD A,(HL)
+
+      // Test multiple increment scenarios to be absolutely sure
+      const testCases = [
+        { h: 0x42, l: 0x44, memValue: 0x23, expectedHL: 0x4245 },
+        { h: 0x80, l: 0xff, memValue: 0x55, expectedHL: 0x8100 }, // Test carry from L to H
+        { h: 0xff, l: 0xff, memValue: 0x77, expectedHL: 0x0000 }, // Test wraparound
+        { h: 0x00, l: 0x00, memValue: 0x99, expectedHL: 0x0001 }, // Test from zero
+      ];
+
+      testCases.forEach(({ h, l, memValue, expectedHL }, index) => {
+        // Reset CPU for each test case
+        cpu.reset();
+
+        const initialHL = (h << 8) | l;
+        mmu.writeByte(initialHL, memValue);
+
+        cpu.setRegisterA(0x00); // Clear A register
+        cpu.setRegisterH(h);
+        cpu.setRegisterL(l);
+        cpu.setProgramCounter(0x8000);
+        mmu.writeByte(0x8000, 0x2a); // LD A,(HL+) opcode
+
+        // Execute instruction
+        const cycles = cpu.step();
+
+        // Verify A loaded with correct value
+        expect(cpu.getRegisters().a).toBe(memValue);
+
+        // CRITICAL: Verify HL was incremented (this is what makes it LD A,(HL+) not LD A,(HL))
+        const finalHL = (cpu.getRegisters().h << 8) | cpu.getRegisters().l;
+        expect(finalHL).toBe(expectedHL);
+
+        // Verify timing
+        expect(cycles).toBe(8);
+        expect(cpu.getPC()).toBe(0x8001);
+
+        // If HL wasn't incremented, fail with clear error message
+        if (finalHL === initialHL) {
+          throw new Error(
+            `Test case ${index + 1}: CRITICAL BUG - HL was not incremented! ` +
+              `Initial HL: 0x${initialHL.toString(16).toUpperCase()}, ` +
+              `Final HL: 0x${finalHL.toString(16).toUpperCase()}. ` +
+              `This indicates wrong implementation (LD A,(HL) instead of LD A,(HL+)) is being used.`
+          );
+        }
+      });
+    });
+
     test('LD (HL-),A (0x32) should store A to (HL) then decrement HL', () => {
       // RED PHASE: This test WILL FAIL until LD (HL-),A instruction is implemented
       cpu.setRegisterA(0x99);

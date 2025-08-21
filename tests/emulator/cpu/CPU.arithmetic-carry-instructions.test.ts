@@ -394,7 +394,7 @@ describe('SM83 CPU Arithmetic with Carry Instructions (Phase 2A)', () => {
         cpu.step();
 
         expect(cpu.getRegisters().a).toBe(0x3f); // 0x70 - 0x30 - 1 = 0x3F
-        validateFlags(cpu, false, true, false, false);
+        validateFlags(cpu, false, true, true, false); // H flag set: (0x0 - 0x0 - 1) < 0
       });
     });
 
@@ -409,7 +409,7 @@ describe('SM83 CPU Arithmetic with Carry Instructions (Phase 2A)', () => {
         expect(cycles).toBe(8); // Immediate read takes 8 cycles
         expect(cpu.getRegisters().a).toBe(0x4b); // 0x80 - 0x35 = 0x4B
         expect(cpu.getRegisters().pc).toBe(0x8002);
-        validateFlags(cpu, false, true, false, false);
+        validateFlags(cpu, false, true, true, false); // H flag set: (0x0 - 0x5 - 0) < 0
       });
 
       test('handles underflow with immediate value', () => {

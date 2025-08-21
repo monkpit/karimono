@@ -425,26 +425,47 @@ describe('SM83 CPU Rotation Instructions (Phase 2A)', () => {
       const initialSP = 0xfffe;
       cpu.setStackPointer(initialSP);
 
-      const initialRegisters = cpu.getRegisters();
+      // Capture initial register values (not references)
+      const initialA = cpu.getRegisters().a;
+      const initialB = cpu.getRegisters().b;
+      const initialC = cpu.getRegisters().c;
+      const initialD = cpu.getRegisters().d;
+      const initialE = cpu.getRegisters().e;
+      const initialH = cpu.getRegisters().h;
+      const initialL = cpu.getRegisters().l;
+
+      // Debug: check initial state
+      expect(initialA).toBe(170); // Should be 0xaa (170)
 
       // Perform rotation
       mmu.writeByte(0x8000, 0x17); // RLA
       cpu.step();
 
-      const finalRegisters = cpu.getRegisters();
+      // Capture final register values (not references)
+      const finalA = cpu.getRegisters().a;
+      const finalB = cpu.getRegisters().b;
+      const finalC = cpu.getRegisters().c;
+      const finalD = cpu.getRegisters().d;
+      const finalE = cpu.getRegisters().e;
+      const finalH = cpu.getRegisters().h;
+      const finalL = cpu.getRegisters().l;
+      const finalPC = cpu.getRegisters().pc;
+
+      // Debug: check expected result
+      expect(finalA).toBe(84); // Should be 0x54 (84) after RLA
 
       // Only A register and flags should change
-      expect(finalRegisters.b).toBe(initialRegisters.b);
-      expect(finalRegisters.c).toBe(initialRegisters.c);
-      expect(finalRegisters.d).toBe(initialRegisters.d);
-      expect(finalRegisters.e).toBe(initialRegisters.e);
-      expect(finalRegisters.h).toBe(initialRegisters.h);
-      expect(finalRegisters.l).toBe(initialRegisters.l);
-      expect(finalRegisters.sp).toBe(initialSP);
-      expect(finalRegisters.pc).toBe(0x8001); // PC should advance
+      expect(finalB).toBe(initialB);
+      expect(finalC).toBe(initialC);
+      expect(finalD).toBe(initialD);
+      expect(finalE).toBe(initialE);
+      expect(finalH).toBe(initialH);
+      expect(finalL).toBe(initialL);
+      expect(cpu.getRegisters().sp).toBe(initialSP);
+      expect(finalPC).toBe(0x8001); // PC should advance
 
       // A register should change
-      expect(finalRegisters.a).not.toBe(initialRegisters.a);
+      expect(finalA).not.toBe(initialA);
     });
   });
 });

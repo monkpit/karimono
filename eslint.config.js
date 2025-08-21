@@ -96,5 +96,12 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
     },
+  },
+  {
+    files: ['scripts/test-performance.js'],
+    rules: {
+      'no-console': 'off', // Allow console statements in performance monitoring script
+      'no-undef': 'off', // Allow undefined variables for variable scope in performance script
+    },
   }
 );

@@ -32,9 +32,9 @@ class EmulatorDemo {
       throw new Error('Required DOM elements not found');
     }
 
-    // Initialize emulator container with debug enabled
+    // Initialize emulator container with debug disabled for performance
     this.container = new EmulatorContainer(displayElement, {
-      debug: true,
+      debug: false,
       display: {
         scale: 3, // 3x scaling for modern displays (480x432)
       },

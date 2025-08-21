@@ -42,11 +42,15 @@ Successfully implemented critical performance optimizations to the BlarggTestRun
 
 ### Constructor Changes
 ```typescript
-// Before
+// Before (Direct instantiation - architectural violation)
 new BlarggTestRunner(parentElement, debug = false)
 
-// After  
-new BlarggTestRunner(parentElement, debug = false, performanceMode = true)
+// After (Dependency injection - architectural compliance)
+const emulator = new EmulatorContainer(parentElement, { debug: false });
+new BlarggTestRunner(emulator, debug = false, performanceMode = true)
+
+// Or using factory method
+BlarggTestRunner.create(parentElement, debug = false, performanceMode = true)
 ```
 
 ### Method Changes
