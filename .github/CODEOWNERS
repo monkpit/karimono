@@ -1,0 +1,29 @@
+# Global code ownership and quality enforcement
+# 
+# This file ensures that all changes go through proper review
+# and that quality gates are enforced at the repository level.
+
+# All files require review
+* @pittm
+
+# Critical configuration files require stricter review
+package.json @pittm
+package-lock.json @pittm
+tsconfig.json @pittm
+jest.config.js @pittm
+eslint.config.js @pittm
+vite.config.ts @pittm
+.github/workflows/ @pittm
+.husky/ @pittm
+scripts/quality-gates.js @pittm
+scripts/jest-quality-reporter.js @pittm
+
+# Test files require Test Engineer patterns to be followed
+tests/ @pittm
+*.test.ts @pittm
+*.spec.ts @pittm
+
+# Core emulator components require Backend Engineer patterns
+src/emulator/cpu/ @pittm
+src/emulator/mmu/ @pittm
+src/emulator/ppu/ @pittm

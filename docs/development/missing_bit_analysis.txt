@@ -1,0 +1,15 @@
+# Missing BIT Instructions Analysis
+
+## Implemented BIT Instructions (12):
+- BIT 0,B (0x40)
+- BIT 0,C (0x41)
+- BIT 0,D (0x42)
+- BIT 0,E (0x43)
+- BIT 0,H (0x44)
+- BIT 0,L (0x45)
+- BIT 0,(HL) (0x46)
+- BIT 0,A (0x47)
+- BIT 1,B (0x48)
+- BIT 3,D (0x5A)
+- BIT 7,H (0x7C)
+- BIT 7,(HL) (0x7E)

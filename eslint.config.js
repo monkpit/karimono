@@ -17,6 +17,10 @@ export default tseslint.config(
       '*.config.ts',
       'tests/resources/',
       'tmp/',
+      // Generated CPU instruction files - these are copy/paste source material
+      'src/emulator/cpu/generated/**/*.ts',
+      '!src/emulator/cpu/generated/index.ts',
+      '!src/emulator/cpu/generated/CPUIntegrationGuide.ts',
     ],
   },
   eslint.configs.recommended,
@@ -79,8 +83,32 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
-      'no-console': 'off',
+      // CRITICAL: Block console statements in test files to prevent debug statements
+      'no-console': 'error',
       'no-unused-vars': 'off',
+      // Block undocumented test skips
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name='skip'][arguments.0.type!='TemplateLiteral'][arguments.length<2]",
+          message:
+            'Test skips must include documentation. Use describe.skip or it.skip with a descriptive comment explaining why the test is disabled and what needs to be done to re-enable it.',
+        },
+        {
+          selector:
+            "MemberExpression[property.name='skip'] + CallExpression:not(:has(Literal:matches(/.*TODO.*|.*FIXME.*|.*because.*|.*waiting.*|.*blocked.*|.*pending.*/i)))",
+          message:
+            'Test skips must include documentation explaining the reason and what needs to be done.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['scripts/test-performance.js', 'scripts/quality-gates.js'],
+    rules: {
+      'no-console': 'off', // Allow console statements in monitoring and quality gate scripts
+      'no-undef': 'off', // Allow undefined variables for variable scope in scripts
     },
   }
 );

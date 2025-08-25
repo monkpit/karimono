@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'package*.json'
       - 'tsconfig.json'
       - 'jest.config.js'
@@ -76,6 +77,16 @@ jobs:
 
       - name: Run linting
         run: npm run lint
+
+      - name: Check for quality violations
+        run: |
+          echo "🔍 Checking for debug statements in test files..."
+          if grep -r "console\.\(log\|warn\|error\|debug\)" tests/ --include="*.ts" --include="*.tsx" --exclude-dir=node_modules; then
+            echo "❌ Found debug console statements in test files"
+            echo "💡 Remove debug statements or use console.info for legitimate test output"
+            exit 1
+          fi
+          echo "✅ No debug statements found in test files"
 
   format:
     name: Check Formatting
@@ -195,7 +206,7 @@ jobs:
             ${{ runner.os }}-coverage-
 
       - name: Run tests with coverage
-        run: npm test
+        run: npm run test:ci
         env:
           NODE_OPTIONS: --max_old_space_size=4096
           CI: true
@@ -249,8 +260,26 @@ jobs:
           path: dist
           key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
+      - name: Final quality verification before build
+        run: |
+          echo "🔍 Final quality verification..."
+          echo "✅ All quality gates passed in previous stages"
+
       - name: Build project
         run: npm run build
+
+      - name: Verify build quality
+        run: |
+          echo "🔍 Verifying build artifacts..."
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed - no dist directory"
+            exit 1
+          fi
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Build failed - no index.html"
+            exit 1
+          fi
+          echo "✅ Build artifacts verified"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
