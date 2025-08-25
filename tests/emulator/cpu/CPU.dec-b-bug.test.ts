@@ -53,53 +53,14 @@ describe('DEC B Bug Reproduction', () => {
     // Clear IF write delay to simulate hardware interrupt timing
     (cpu as any).if_write_delay = false;
 
-    console.log('=== BEFORE STEP ===');
-    console.log(
-      `A:${registers.a.toString(16).padStart(2, '0').toUpperCase()} F:${registers.f.toString(16).padStart(2, '0')} B:${registers.b.toString(16).padStart(2, '0')} PC:${registers.pc.toString(16).padStart(4, '0').toUpperCase()}`
-    );
-    console.log(
-      `Z flag: ${cpu.getZeroFlag()}, N flag: ${cpu.getSubtractFlag()}, H flag: ${cpu.getHalfCarryFlag()}, C flag: ${cpu.getCarryFlag()}`
-    );
-
-    // Check what instruction is actually at PC
-    const opcodeAtPC = mmu.readByte(registers.pc);
-    console.log(
-      `Opcode at PC (0x${registers.pc.toString(16).toUpperCase()}): 0x${opcodeAtPC.toString(16).padStart(2, '0').toUpperCase()}`
-    );
-
     // Check interrupt registers and IME state before execution
-    const ie = mmu.readByte(0xffff); // Interrupt Enable
-    const ifReg = mmu.readByte(0xff0f); // Interrupt Flag
-    console.log(
-      `IE: 0x${ie.toString(16).padStart(2, '0')} IF: 0x${ifReg.toString(16).padStart(2, '0')} IME: ${cpu.getIME()}`
-    );
+    // Read interrupt enable and flag states
+    mmu.readByte(0xffff); // Interrupt Enable
+    mmu.readByte(0xff0f); // Interrupt Flag
 
     // Execute one step (should be DEC B unless interrupt occurs)
-    const cycles = cpu.step();
-    console.log(`Cycles executed: ${cycles}`);
-
-    // Check registers after step
-    const ieAfter = mmu.readByte(0xffff);
-    const ifAfter = mmu.readByte(0xff0f);
-    console.log(
-      `After - IE: 0x${ieAfter.toString(16).padStart(2, '0')} IF: 0x${ifAfter.toString(16).padStart(2, '0')} IME: ${cpu.getIME()}`
-    );
-
+    cpu.step();
     const afterStep = cpu.getRegisters();
-    console.log('=== AFTER STEP ===');
-    console.log(
-      `A:${afterStep.a.toString(16).padStart(2, '0').toUpperCase()} F:${afterStep.f.toString(16).padStart(2, '0')} B:${afterStep.b.toString(16).padStart(2, '0')} PC:${afterStep.pc.toString(16).padStart(4, '0').toUpperCase()}`
-    );
-    console.log(
-      `Z flag: ${cpu.getZeroFlag()}, N flag: ${cpu.getSubtractFlag()}, H flag: ${cpu.getHalfCarryFlag()}, C flag: ${cpu.getCarryFlag()}`
-    );
-
-    // Check if B register changed (would indicate DEC B executed)
-    if (afterStep.b === registers.b) {
-      console.log('⚠️  B register unchanged - DEC B did NOT execute! Likely interrupt occurred.');
-    } else {
-      console.log('✅ B register changed - DEC B executed normally.');
-    }
 
     // Game Boy Doctor expects after one step: A:05 PC:0051 B:01
     // If B is still 01, then DEC B never executed (interrupt handling issue)
@@ -121,12 +82,7 @@ describe('DEC B Bug Reproduction', () => {
 
     const finalRegisters = cpu.getRegisters();
 
-    console.log('Simple DEC B test:');
-    console.log(`B before: 0x${registers.b.toString(16).padStart(2, '0')}`);
-    console.log(`B after: 0x${finalRegisters.b.toString(16).padStart(2, '0')}`);
-    console.log(`PC before: 0x${registers.pc.toString(16).padStart(4, '0')}`);
-    console.log(`PC after: 0x${finalRegisters.pc.toString(16).padStart(4, '0')}`);
-    console.log(`Cycles: ${cycles}`);
+    // Simple DEC B test completed
 
     // Basic expectations for DEC B
     expect(finalRegisters.b).toBe(0x00); // B should decrement from 1 to 0

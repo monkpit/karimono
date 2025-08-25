@@ -58,10 +58,7 @@ describe('Game Boy Doctor ROM 2 DEC B Interrupt Timing Bug', () => {
     expect(after.a).toBe(0x05); // INC A at vector executed (04 -> 05)
     expect(cycles).toBe(28); // 4 (DEC B) + 20 (interrupt) + 4 (INC A)
 
-    console.log('HARDWARE CORRECT: DEC B executes THEN interrupt is checked');
-    console.log(
-      `Result: A=${after.a.toString(16)}, B=${after.b.toString(16)}, PC=${after.pc.toString(16)}, cycles=${cycles}`
-    );
+    // HARDWARE CORRECT: DEC B executes THEN interrupt is checked
   });
 
   test('should demonstrate hardware correct behavior - INSTRUCTION THEN INTERRUPT', () => {
@@ -89,11 +86,7 @@ describe('Game Boy Doctor ROM 2 DEC B Interrupt Timing Bug', () => {
     const cycles = cpu.step();
     const after = cpu.getRegisters();
 
-    console.log('SUCCESS: DEC B executes THEN interrupt is checked (Hardware correct behavior)');
-    console.log(`Expected: A=05, B=00, PC=0051`);
-    console.log(
-      `Actual: A=${after.a.toString(16)}, B=${after.b.toString(16)}, PC=${after.pc.toString(16)}`
-    );
+    // SUCCESS: DEC B executes THEN interrupt is checked (Hardware correct behavior)
 
     // Hardware correct behavior:
     expect(after.a).toBe(0x05); // INC A executed at interrupt vector
@@ -139,9 +132,9 @@ describe('Game Boy Doctor ROM 2 DEC B Interrupt Timing Bug', () => {
     // Game Boy Doctor ROM 2 is a complex test that simulates real Game Boy behavior
     // The DEC B scenario at PC:C2C0 might be happening in a special context
 
-    console.log('\n=== GAME BOY DOCTOR CONTEXT ANALYSIS ===');
-    console.log('Key Question: Is PC:C2C0 inside an interrupt handler already?');
-    console.log('If so, nested interrupt behavior might be different.');
+    // GAME BOY DOCTOR CONTEXT ANALYSIS
+    // Key Question: Is PC:C2C0 inside an interrupt handler already?
+    // If so, nested interrupt behavior might be different.
 
     // Test both scenarios:
     // 1. Normal context (like LDH test): Interrupt after instruction
@@ -165,15 +158,12 @@ describe('Game Boy Doctor ROM 2 DEC B Interrupt Timing Bug', () => {
     mmu.writeByte(0x0050, 0x3c); // INC A
     mmu.writeByte(0x0051, 0xc9); // RET
 
-    console.log('CURRENT BEHAVIOR: DEC B executes first, then interrupt');
-    const cycles = cpu.step();
-    const after = cpu.getRegisters();
+    // CURRENT BEHAVIOR: DEC B executes first, then interrupt
+    cpu.step();
+    // Check state after step
 
-    console.log(
-      `Result: A=${after.a}, B=${after.b}, PC=0x${after.pc.toString(16)}, cycles=${cycles}`
-    );
-    console.log('GAME BOY DOCTOR EXPECTS: Interrupt first, no DEC B execution');
-    console.log(`Expected: A=5, B=1, PC=0x51, cycles=24`);
+    // GAME BOY DOCTOR EXPECTS: Interrupt first, no DEC B execution
+    // Expected: A=5, B=1, PC=0x51, cycles=24
 
     // The discrepancy suggests Game Boy Doctor ROM 2 has different interrupt timing
     // This could be due to:

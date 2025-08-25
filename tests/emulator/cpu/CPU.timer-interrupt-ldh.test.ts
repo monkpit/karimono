@@ -64,42 +64,34 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     cpu.setProgramCounter(0x0100);
 
     // Record initial state before instruction
-    const initialPC = cpu.getPC();
-    const initialA = cpu.getRegisters().a;
-    const initialTIMA = mmu.readByte(0xff05);
+    // Capture initial state for reference
+    cpu.getPC();
+    cpu.getRegisters().a;
+    mmu.readByte(0xff05);
 
     // Execute the LDH instruction which should complete before timer interrupt is checked
     // LDH takes 12 cycles, and timer overflow should happen during execution
-    let totalCycles = 0;
+    // Cycle tracking removed for simplicity
     let executedInstructions = 0;
 
     while (executedInstructions < 1) {
-      const cycles = cpu.step();
-      totalCycles += cycles;
+      cpu.step();
+      // totalCycles tracking removed
       executedInstructions++;
 
-      // Log state after each step for debugging
-      console.log(
-        `Step ${executedInstructions}: PC=0x${cpu.getPC().toString(16).padStart(4, '0')}, cycles=${cycles}, total=${totalCycles}`
-      );
-      console.log(
-        `  TIMA=0x${mmu.readByte(0xff05).toString(16).padStart(2, '0')}, IF=0x${mmu.readByte(0xff0f).toString(16).padStart(2, '0')}`
-      );
+      // Log state after each step for debugging if needed
     }
 
     // CRITICAL TEST: LDH instruction should have completed
     // PC should advance to next instruction (0x0102), not jump to interrupt vector (0x0050)
     const finalPC = cpu.getPC();
-    const finalA = cpu.getRegisters().a;
+    // Check final A register
+    cpu.getRegisters().a;
     const finalMemoryValue = mmu.readByte(0xff80); // Where LDH stored A register
-    const finalIF = mmu.readByte(0xff0f);
+    // Check final interrupt flag
+    mmu.readByte(0xff0f);
 
-    console.log(`\nFinal state:`);
-    console.log(`  PC: 0x${initialPC.toString(16)} -> 0x${finalPC.toString(16)}`);
-    console.log(`  A: 0x${initialA.toString(16)} -> 0x${finalA.toString(16)}`);
-    console.log(`  Memory[0xFF80]: 0x${finalMemoryValue.toString(16)}`);
-    console.log(`  TIMA: 0x${initialTIMA.toString(16)} -> 0x${mmu.readByte(0xff05).toString(16)}`);
-    console.log(`  IF: 0x${finalIF.toString(16)}`);
+    // Final state logged for debugging if needed
 
     // EXPECTATIONS based on Game Boy Doctor behavior:
 
@@ -140,7 +132,7 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     // We'll manually trigger timer steps to control timing
 
     // Execute the instruction
-    const cycles = cpu.step();
+    cpu.step();
 
     // Verify the instruction completed (PC advanced)
     expect(cpu.getPC()).toBe(0x0103); // Should advance past 3-byte instruction
@@ -150,7 +142,7 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     const storedValue = mmu.readByte(0xc000) | (mmu.readByte(0xc001) << 8);
     expect(storedValue).toBe(0xfffe); // SP value should be stored
 
-    console.log(`LD (nn),SP completed: cycles=${cycles}, PC=0x${cpu.getPC().toString(16)}`);
+    // LD (nn),SP completed successfully
   });
 
   test('Timer interrupt should be processed between instructions, not during', () => {
@@ -178,10 +170,7 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     cpu.setRegisterA(0x00); // Clear A register
 
     // Step 1: Execute NOP - should complete normally
-    const step1Cycles = cpu.step();
-    console.log(
-      `Step 1: PC=0x${cpu.getPC().toString(16)}, A=0x${cpu.getRegisters().a.toString(16)}, IF=0x${mmu.readByte(0xff0f).toString(16)}`
-    );
+    cpu.step();
     expect(cpu.getPC()).toBe(0x0101); // Should advance to next instruction
     expect(cpu.getRegisters().a).toBe(0x00); // A should still be 0
 
@@ -189,21 +178,13 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     // This simulates timer overflow occurring between instructions
     const timer = (mmu as any).timer;
     timer.step(16); // Force timer increment and overflow
-    console.log(
-      `After timer step: TIMA=0x${mmu.readByte(0xff05).toString(16)}, IF=0x${mmu.readByte(0xff0f).toString(16)}`
-    );
 
     // Clear IF write delay to simulate hardware behavior where timer interrupt occurs naturally
     // Timer interrupts shouldn't have the 1-cycle delay that manual IF writes have
     (cpu as any).if_write_delay = false;
 
     // Step 3: Execute next instruction - should be interrupted
-    const step2Cycles = cpu.step();
-    console.log(
-      `Step 2: PC=0x${cpu.getPC().toString(16)}, A=0x${cpu.getRegisters().a.toString(16)}, IF=0x${mmu.readByte(0xff0f).toString(16)}`
-    );
-    console.log(`IE=0x${mmu.readByte(0xffff).toString(16)}, IME=${cpu.getIME()}`);
-    console.log(`if_write_delay=${(cpu as any).if_write_delay}`);
+    cpu.step();
 
     // Now we should be in the interrupt handler
     expect(cpu.getPC()).toBe(0x0052); // Should be in interrupt handler, past LD A,n
@@ -212,6 +193,6 @@ describe('CPU Timer Interrupt Timing - LDH Instruction', () => {
     // Verify interrupt flag was cleared
     expect(mmu.readByte(0xff0f) & 0x04).toBe(0); // Timer interrupt flag should be clear
 
-    console.log(`Timer interrupt processed correctly: step1=${step1Cycles}, step2=${step2Cycles}`);
+    // Timer interrupt processed correctly
   });
 });

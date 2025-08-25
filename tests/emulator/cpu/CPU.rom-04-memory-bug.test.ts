@@ -55,10 +55,7 @@ describe('CPU ROM 04 Memory Content Bug', () => {
     mmu.loadCartridge(testCartridge);
     mmu.setPostBootState();
 
-    console.log('=== MBC1 Bank Switching Resolution ===');
-    console.log(
-      `Default ROM bank content at 0x4244: 0x${mmu.readByte(0x4244).toString(16).padStart(2, '0')}`
-    );
+    // MBC1 Bank Switching Resolution
 
     // STEP 2: Verify LD A,(HL+) instruction works correctly
     const registers = cpu.getRegisters();
@@ -76,10 +73,10 @@ describe('CPU ROM 04 Memory Content Bug', () => {
     expect((registers.h << 8) | registers.l).toBe(0x4245); // HL should increment
     expect(registers.a).toBe(0x14); // Reads actual ROM content from default bank
 
-    console.log('✅ MBC1 bank switching implementation successful');
-    console.log('✅ ROM immutability maintained');
-    console.log('✅ Blargg ROM 04 passes integration test');
-    console.log('✅ Game Boy Doctor discrepancy resolved');
+    // MBC1 bank switching implementation successful
+    // ROM immutability maintained
+    // Blargg ROM 04 passes integration test
+    // Game Boy Doctor discrepancy resolved
   });
 
   test('ROM space should be immutable - writes should not modify content', () => {
@@ -90,13 +87,11 @@ describe('CPU ROM 04 Memory Content Bug', () => {
     mmu.loadCartridge(testCartridge);
 
     const originalValue = mmu.readByte(0x4244);
-    console.log(`Original ROM[0x4244]: 0x${originalValue.toString(16)}`);
 
     // STEP 2: Attempt to write to ROM space (should not modify content)
     mmu.writeByte(0x4244, 0x23);
 
     const afterWriteValue = mmu.readByte(0x4244);
-    console.log(`After write ROM[0x4244]: 0x${afterWriteValue.toString(16)}`);
 
     // STEP 3: ROM content should be unchanged (hardware-accurate behavior)
     expect(afterWriteValue).toBe(originalValue); // ROM should be immutable
@@ -122,11 +117,11 @@ describe('CPU ROM 04 Memory Content Bug', () => {
     // - Hardware-accurate ROM immutability maintained
     // - Blargg ROM 04 now passes: "04-op r,imm\n\n\nPassed"
 
-    console.log('✅ Investigation complete - Mystery solved!');
-    console.log('✅ Cause: MBC1 bank switching during ROM execution');
-    console.log('✅ Solution: Implemented hardware-accurate MBC1 controller');
-    console.log('✅ Verification: Blargg ROM 04 integration test passes');
-    console.log('✅ Result: Both ROM immutability AND bank switching work correctly');
+    // Investigation complete - Mystery solved!
+    // Cause: MBC1 bank switching during ROM execution
+    // Solution: Implemented hardware-accurate MBC1 controller
+    // Verification: Blargg ROM 04 integration test passes
+    // Result: Both ROM immutability AND bank switching work correctly
 
     // Documentation test - always passes
     expect(true).toBe(true);

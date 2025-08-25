@@ -73,9 +73,7 @@ describe('Interrupt Execution Fix Summary', () => {
     expect(after.a).toBe(0x01); // A incremented by INC A instruction
     expect(cycles).toBe(28); // 4 (NOP) + 20 (interrupt) + 4 (INC A)
 
-    console.log('SUCCESS: Interrupt vector instruction executes in same step as interrupt');
-    console.log(`PC: 0x8000 → 0x${after.pc.toString(16)} (via interrupt vector)`);
-    console.log(`A: 0x00 → 0x${after.a.toString(16)} (INC A executed at vector)`);
+    // SUCCESS: Interrupt vector instruction executes in same step as interrupt
   });
 
   test('should maintain IF write delay behavior', () => {
@@ -112,54 +110,29 @@ describe('Interrupt Execution Fix Summary', () => {
     expect(after2.a).toBe(0x05); // A incremented by INC A
     expect(step2Cycles).toBe(28); // 4 (NOP) + 20 (interrupt) + 4 (INC A)
 
-    console.log('SUCCESS: IF write delay preserved, interrupt vector instruction executes');
+    // SUCCESS: IF write delay preserved, interrupt vector instruction executes
   });
 
   test('should document Game Boy Doctor ROM 2 DEC B analysis needed', () => {
     // This test documents the remaining Game Boy Doctor ROM 2 issue
-    console.log('\n=== GAME BOY DOCTOR ROM 2 DEC B ANALYSIS REQUIRED ===');
-    console.log('Issue: DEC B at PC:C2C0 still executes before interrupt in our emulator');
-    console.log('Game Boy Doctor expects: Interrupt before DEC B execution');
-    console.log('Current result: DEC B executes, then interrupt occurs');
-    console.log('');
-    console.log('Possible causes to investigate:');
-    console.log('1. Special context: PC:C2C0 might be inside interrupt handler already');
-    console.log('2. Nested interrupts: Different timing rules for interrupts within handlers');
-    console.log('3. ROM-specific behavior: Game Boy Doctor ROM 2 simulates edge cases');
-    console.log('4. Hardware timing: Specific CPU/interrupt interaction timing');
-    console.log('');
-    console.log('Recommendation: Defer to Product Owner for hardware expertise');
-    console.log('Required: RGBDS documentation analysis and Game Boy Online comparison');
+    // GAME BOY DOCTOR ROM 2 DEC B ANALYSIS REQUIRED
+    // Issue: DEC B at PC:C2C0 still executes before interrupt in our emulator
+    // Game Boy Doctor expects: Interrupt before DEC B execution
+    // Current result: DEC B executes, then interrupt occurs
 
-    // For now, document current behavior vs expected behavior
-    const expectedBehavior = {
-      description: 'Game Boy Doctor ROM 2 expectation',
-      sequence: [
-        'Interrupt occurs',
-        'Jump to PC:0050',
-        'Execute INC A',
-        'A:04→05, PC:0051',
-        'DEC B never executes',
-      ],
-      result: { a: 0x05, b: 0x01, pc: 0x0051 },
-    };
+    // Document expected vs current behavior for future reference
+    // Expected: Game Boy Doctor ROM 2 expects interrupt before DEC B execution
+    //   - Interrupt occurs first → Jump to PC:0050 → Execute INC A → A:04→05, PC:0051
+    //   - DEC B never executes → B remains 0x01
+    //   - Result: { a: 0x05, b: 0x01, pc: 0x0051 }
+    //
+    // Current: Our implementation executes DEC B then interrupt
+    //   - Execute DEC B → B:01→00 → Interrupt occurs → Jump to PC:0050 → Execute INC A → A:04→05, PC:0051
+    //   - Result: { a: 0x05, b: 0x00, pc: 0x0051 }
 
-    const currentBehavior = {
-      description: 'Our current implementation',
-      sequence: [
-        'Execute DEC B',
-        'B:01→00',
-        'Interrupt occurs',
-        'Jump to PC:0050',
-        'Execute INC A',
-        'A:04→05, PC:0051',
-      ],
-      result: { a: 0x05, b: 0x00, pc: 0x0051 },
-    };
-
-    console.log('Expected:', JSON.stringify(expectedBehavior.result));
-    console.log('Current: ', JSON.stringify(currentBehavior.result));
-    console.log('Difference: B register (01 vs 00) indicates DEC B execution timing');
+    // Expected: {"a":5,"b":1,"pc":81}
+    // Current:  {"a":5,"b":0,"pc":81}
+    // Difference: B register (01 vs 00) indicates DEC B execution timing
 
     // This test passes to document the issue, not to verify correctness
     expect(true).toBe(true); // Documentation test

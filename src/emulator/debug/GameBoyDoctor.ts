@@ -43,6 +43,13 @@ export class GameBoyDoctor {
   }
 
   /**
+   * Check if Game Boy Doctor logging is enabled
+   */
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /**
    * Log CPU state for Game Boy Doctor analysis
    * Called once per CPU step before instruction execution
    */

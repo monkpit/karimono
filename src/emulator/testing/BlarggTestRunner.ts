@@ -48,10 +48,10 @@ export interface BlarggTestSuiteResult {
 export class BlarggTestRunner {
   // Increased cycle limit for longer tests, sufficient for ~35 seconds at 4.194MHz
   private static readonly MAX_CYCLES = 150_000_000;
-  // High cycle limit for specific problematic ROMs that require more cycles (57-72M cycles observed)
-  private static readonly HIGH_CYCLE_LIMIT = 100_000_000;
+  // High cycle limit for comprehensive test ROM (measured: 221M cycles, buffer: 250M)
+  private static readonly HIGH_CYCLE_LIMIT = 250_000_000;
   private static readonly COMPLETION_TIMEOUT_MS = 30_000; // 30 second timeout
-  private static readonly HIGH_CYCLE_TIMEOUT_MS = 120_000; // 2 minute timeout for high-cycle ROMs
+  private static readonly HIGH_CYCLE_TIMEOUT_MS = 300_000; // 5 minute timeout for high-cycle ROMs
   // Adjusted logging intervals for performance
   private static readonly CPU_STATE_LOG_INTERVAL = 10_000_000; // Log CPU state every 10M cycles
   private static readonly INSTRUCTION_DEBUG_INTERVAL = 1_000_000; // Log instruction state every 1M cycles for debugging

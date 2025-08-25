@@ -12,14 +12,9 @@ import { performance } from 'perf_hooks';
 
 const PERFORMANCE_TESTS = [
   {
-    name: 'Unit Tests (Optimized)',
-    command: 'npm run test:unit',
-    description: 'All tests with node environment and max parallelization',
-  },
-  {
-    name: 'Integration Tests (Optimized)',
-    command: 'npm run test:integration',
-    description: 'All tests with jsdom environment and 75% parallelization',
+    name: 'Full Test Suite (with Coverage)',
+    command: 'npm test',
+    description: 'All tests with coverage for CI/final validation',
   },
   {
     name: 'Fast Tests (No Coverage)',
@@ -27,19 +22,9 @@ const PERFORMANCE_TESTS = [
     description: 'All tests with no coverage and max parallelization',
   },
   {
-    name: 'Parallel Unit Tests',
-    command: 'npm run test:parallel:unit',
-    description: 'CPU/MMU tests only with max parallelization',
-  },
-  {
-    name: 'Parallel Display Tests',
-    command: 'npm run test:parallel:display',
-    description: 'Display tests only with 50% parallelization',
-  },
-  {
-    name: 'Parallel Blargg Tests',
-    command: 'npm run test:parallel:blargg',
-    description: 'Blargg integration tests with 75% parallelization',
+    name: 'Watch Mode Test',
+    command: 'timeout 5s npm run test:watch || true',
+    description: 'Test watch mode startup (5 second sample)',
   },
 ];
 
@@ -136,9 +121,9 @@ function generatePerformanceReport(results) {
 
   console.log('\n💡 OPTIMIZATION RECOMMENDATIONS:');
   console.log('   • Use npm run test:fast for development feedback loops');
-  console.log('   • Use npm run test:parallel:unit for CPU/MMU development');
-  console.log('   • Use npm run test:parallel:blargg for integration validation');
-  console.log('   • Use npm run test for full CI/CD pipeline validation');
+  console.log('   • Use npm run test:watch for continuous TDD development');
+  console.log('   • Use npm test for full CI/CD pipeline validation with coverage');
+  console.log('   • Use npm run validate for complete validation pipeline');
 
   console.log('\n🎯 PERFORMANCE TARGETS ACHIEVED:');
   if (successfulTests.length > 0) {

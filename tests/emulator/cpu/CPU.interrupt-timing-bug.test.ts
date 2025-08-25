@@ -60,13 +60,7 @@ describe('CPU Interrupt Timing Bug', () => {
 
     cpu.setProgramCounter(0xc2c0);
 
-    console.log('Before step:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`B: 0x${cpu.getRegisters().b.toString(16)}`);
-    console.log(`SP: 0x${cpu.getRegisters().sp.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`IME: ${cpu.getIME()}`);
+    // Log state before step for debugging if needed
 
     // Execute one CPU step
     // Hardware correct behavior:
@@ -77,13 +71,7 @@ describe('CPU Interrupt Timing Bug', () => {
     // 5. Result: A=05, B=00 (DEC B executed), PC=0051, SP=DFFB
     const cycles = cpu.step();
 
-    console.log('After step:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`B: 0x${cpu.getRegisters().b.toString(16)}`);
-    console.log(`SP: 0x${cpu.getRegisters().sp.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`Cycles: ${cycles}`);
+    // Log state after step for debugging if needed
 
     // HARDWARE CORRECT BEHAVIOR:
     // - A: 04 → 05 (INC A in interrupt handler executed)
@@ -100,7 +88,7 @@ describe('CPU Interrupt Timing Bug', () => {
     expect(mmu.readByte(0xff0f) & 0x04).toBe(0); // Timer interrupt flag cleared
     expect(cycles).toBe(28); // 4 (DEC B) + 20 (interrupt) + 4 (INC A)
 
-    console.log('✅ Test passed: Hardware correct interrupt timing (after instruction execution)');
+    // Test passed: Hardware correct interrupt timing (after instruction execution)
   });
 
   test('When no interrupt pending, instruction should execute normally', () => {
@@ -131,6 +119,6 @@ describe('CPU Interrupt Timing Bug', () => {
     expect(cpu.getRegisters().sp).toBe(0xdffd); // SP unchanged
     expect(cycles).toBe(4); // DEC B takes 4 cycles
 
-    console.log('✅ Control test passed: Normal instruction execution');
+    // Control test passed: Normal instruction execution
   });
 });

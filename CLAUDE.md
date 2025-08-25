@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Karimono-v2 is a Node.js/Vite webapp implementing a Game Boy DMG emulator. The project emphasizes strict engineering principles including TDD, encapsulation, composition, and pragmatic functional programming.
 
+## Package.json Script Policy
+
+**CRITICAL**: Never add npm scripts without explicit user approval.
+
+- **Maximum scripts**: Keep to essential commands only (currently 10 scripts)
+- **No script bloat**: Handle optimizations through configuration files (Jest, ESLint, etc.) rather than additional scripts
+- **Essential scripts only**: `dev`, `build`, `lint`, `format`, `format:check`, `typecheck`, `test`, `test:watch`, `validate`, `prepare`
+- **Approval required**: Any new script addition must have explicit user approval first
+- **Simple approach**: Use environment variables and configuration files for variations, not multiple npm scripts
+
 ## Agent Team Structure
 
 **CRITICAL**: Use specialized agents for ALL tasks unless explicitly requested to use general agent. Each agent must follow their role strictly.
@@ -181,28 +191,10 @@ npm run dev
 # Build
 npm run build
 
-# Testing - Optimized Test Suite (5-10x Performance Improvement)
-# ALL TESTS INCLUDED - NO EXCLUSIONS
-npm test                        # Full test suite with coverage (all tests)
-npm run test:fast               # All tests, no coverage, max parallelization (~3s)
-npm run test:unit               # All tests with jsdom environment (~4s)
-npm run test:integration        # All tests with integration timeouts (~6s)
-
-# Parallel Execution Strategies (for targeted development)
-npm run test:parallel:unit      # CPU/MMU tests only, max workers (~2s)
-npm run test:parallel:display   # Display tests only, optimized workers (~3s)
-npm run test:parallel:blargg    # Blargg ROMs only, parallel execution (~90s)
-npm run test:all:optimized      # Sequential parallel execution of all test types
-
-# Performance Monitoring
-npm run test:performance        # Comprehensive performance analysis
-npm run test:monitor            # Monitor test execution time
-
-# Development Workflows
-npm run test:fast               # Fastest feedback for TDD cycles
-npm run test:quick-validation   # Fast validation before commits
-npm run test:unit:watch         # Unit tests in watch mode
-npm run test:integration:watch  # Integration tests in watch mode
+# Testing - Streamlined Commands
+npm test                        # Full test suite with coverage (CI/final validation)
+npm run test:fast               # All tests, no coverage, optimized for speed (TDD cycles)
+npm run test:watch              # Tests in watch mode for development
 
 # Test single file
 npm test path/to/test.spec.ts
@@ -217,65 +209,40 @@ npm test -- -t "should handle edge cases"
 # CRITICAL: Always use -t flag to isolate specific tests when targeting individual test cases
 # This prevents running unintended tests and provides faster, focused feedback
 
-# Legacy test commands (specific components)
-npm run test:cpu            # CPU-specific tests
-npm run test:ppu            # PPU-specific tests  
-npm run test:memory         # Memory-specific tests
+# Lint and Format
+npm run lint                    # Check code style
+npm run format                  # Auto-fix formatting
+npm run format:check            # Check formatting (CI)
 
-# Lint
-npm run lint
+# Type Check
+npm run typecheck               # TypeScript type validation
 
-# Type check
-npm run typecheck
-
-# Full validation (matches CI pipeline)
-npm run validate
+# Full Validation Pipeline
+npm run validate                # Complete validation (lint + typecheck + test:fast + build)
 ```
 
-## Test Suite Performance Optimization
+## Test Suite Strategy
 
-The test suite has been completely optimized for 5-10x performance improvement while ensuring ALL tests continue to run and pass. Key optimizations:
+The test suite uses a streamlined approach focused on essential commands:
 
-### Performance Strategy
+### Core Testing Commands
 
-**CRITICAL: NO TEST EXCLUSIONS** - All 61 test files run in every configuration to maintain comprehensive validation.
+1. **`npm test`**: Full test suite with coverage for CI/CD and final validation
+2. **`npm run test:fast`**: All tests without coverage, optimized for development speed
+3. **`npm run test:watch`**: Interactive watch mode for TDD cycles
 
-1. **Smart Parallelization**: 
-   - `test:fast`: 100% maxWorkers for fastest feedback
-   - `test:parallel:unit`: 100% maxWorkers for CPU/MMU tests
-   - `test:parallel:display`: 50% maxWorkers for DOM-intensive tests
-   - `test:parallel:blargg`: 75% maxWorkers for resource-intensive integration tests
+### Performance Optimizations
 
-2. **Environment Optimization**:
-   - All configs use `jsdom` environment to support display tests
-   - Unified test setup across all configurations
-   - Smart timeout management (15s-120s based on test type)
+- **Smart Parallelization**: `test:fast` uses 100% maxWorkers for fastest feedback
+- **Coverage Strategy**: Coverage enabled only for `npm test` (CI/final validation)
+- **Timeout Management**: Appropriate timeouts (15s default) for all test scenarios
 
-3. **Coverage Strategy**:
-   - Development cycles: Coverage disabled for speed (`test:fast`)
-   - CI/CD pipeline: Full coverage analysis (`npm test`)
-   - Targeted workflows: Coverage only when needed
-
-4. **Caching Optimizations**:
-   - Jest cache enabled across all configurations
-   - Shared `.jestcache` directory for persistent caching
-   - Transform caching for TypeScript compilation
-
-### Performance Targets Achieved
-
-- **Fast Feedback Loop**: < 5 seconds for development iteration
-- **Comprehensive Validation**: < 30 seconds for full test suite
-- **Parallel Efficiency**: 75% resource utilization for integration tests
-- **No Exclusions**: 100% test coverage maintained across all configurations
-
-### Development Workflow Recommendations
+### Development Workflow
 
 - **TDD Cycles**: Use `npm run test:fast` for immediate feedback
-- **CPU Development**: Use `npm run test:parallel:unit` for focused validation
-- **Display Development**: Use `npm run test:parallel:display` for UI components
-- **Integration Validation**: Use `npm run test:parallel:blargg` for hardware accuracy
-- **Pre-commit**: Use `npm run test:quick-validation` for rapid validation
-- **CI/CD**: Use `npm test` for comprehensive coverage analysis
+- **Watch Mode**: Use `npm run test:watch` for continuous development
+- **Final Validation**: Use `npm test` for comprehensive coverage before commits
+- **CI Pipeline**: Uses `npm test` for full coverage analysis
 
 
 ## Code Generation Architecture

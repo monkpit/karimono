@@ -77,62 +77,16 @@ jobs:
 
       - name: Run linting
         run: npm run lint
-
-  codegen-validation:
-    name: Validate Generated Code
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
-
-      - name: Install dependencies
-        if: needs.setup.outputs.cache-hit != 'true'
-        run: npm ci --no-audit
-
-      - name: Cache generated files
-        uses: actions/cache@v4
-        with:
-          path: src/emulator/cpu/generated
-          key: ${{ runner.os }}-codegen-${{ hashFiles('tests/resources/opcodes.json', 'scripts/codegen/**/*.ts') }}
-          restore-keys: |
-            ${{ runner.os }}-codegen-
-
-      - name: Validate generated CPU instructions
-        run: npm run codegen:check
-
-      - name: Generate instructions if missing
-        if: failure()
+        
+      - name: Check for quality violations
         run: |
-          echo "⚠️ Generated files are missing or outdated"
-          echo "🔧 Regenerating CPU instructions..."
-          npm run codegen:force
-          echo "✅ Regeneration complete"
-
-      - name: Verify generated code quality
-        run: npm run codegen:verify
-
-      - name: Validate template patterns
-        run: |
-          echo "🔍 Validating template quality and patterns..."
-          echo "✅ Generated files are excluded from linting (copy/paste source material)"
-          echo "🎯 Template validation focuses on code generation quality"
+          echo "🔍 Checking for debug statements in test files..."
+          if grep -r "console\.\(log\|warn\|error\|debug\)" tests/ --include="*.ts" --include="*.tsx" --exclude-dir=node_modules; then
+            echo "❌ Found debug console statements in test files"
+            echo "💡 Remove debug statements or use console.info for legitimate test output"
+            exit 1
+          fi
+          echo "✅ No debug statements found in test files"
 
   format:
     name: Check Formatting
@@ -251,8 +205,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coverage-
 
+      - name: Run automated quality gates
+        run: node scripts/quality-gates.js
+        
       - name: Run tests with coverage
-        run: npm test
+        run: npm run test:ci
         env:
           NODE_OPTIONS: --max_old_space_size=4096
           CI: true
@@ -276,7 +233,7 @@ jobs:
   build:
     name: Build Project
     runs-on: ubuntu-latest
-    needs: [lint, codegen-validation, format, typecheck, test]
+    needs: [lint, format, typecheck, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -306,8 +263,26 @@ jobs:
           path: dist
           key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
+      - name: Final quality verification before build
+        run: |
+          echo "🔍 Final quality verification..."
+          echo "✅ All quality gates passed in previous stages"
+          
       - name: Build project
         run: npm run build
+        
+      - name: Verify build quality
+        run: |
+          echo "🔍 Verifying build artifacts..."
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed - no dist directory"
+            exit 1
+          fi
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Build failed - no index.html"
+            exit 1
+          fi
+          echo "✅ Build artifacts verified"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

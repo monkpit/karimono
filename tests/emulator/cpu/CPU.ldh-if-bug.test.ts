@@ -47,21 +47,12 @@ describe('CPU LDH IF Register Bug', () => {
 
     cpu.setProgramCounter(0x0100);
 
-    console.log('Before LDH (0F),A:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`IE: 0x${mmu.readByte(0xffff).toString(16)}`);
-    console.log(`IME: ${cpu.getIME()}`);
+    // Log state before LDH (0F),A for debugging if needed
 
     // Execute LDH (0F),A - this should NOT trigger interrupt immediately
-    const cycles = cpu.step();
+    cpu.step();
 
-    console.log('After LDH (0F),A:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`Cycles: ${cycles}`);
+    // Log state after LDH (0F),A for debugging if needed
 
     // CRITICAL TEST: PC should advance to next instruction, NOT jump to interrupt vector
     expect(cpu.getPC()).toBe(0x0102); // Should advance to next instruction
@@ -73,7 +64,7 @@ describe('CPU LDH IF Register Bug', () => {
     // But the interrupt should NOT have been serviced yet
     // (It will be checked on the NEXT instruction execution)
 
-    console.log('Test passed: LDH (0F),A completed without immediate interrupt');
+    // Test passed: LDH (0F),A completed without immediate interrupt
   });
 
   test('Next instruction after LDH (0F),A should trigger the interrupt', () => {
@@ -99,29 +90,21 @@ describe('CPU LDH IF Register Bug', () => {
     expect(mmu.readByte(0xff0f)).toBe(0x04);
 
     // Step 2: Execute NOP - should trigger interrupt
-    console.log('Before step 2:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`if_write_delay: ${(cpu as any).if_write_delay}`);
+    // Log state before step 2 for debugging if needed
 
     // Manually clear the delay flag to simulate correct hardware timing
     // The delay should only affect the step where IF was written, not subsequent steps
     (cpu as any).if_write_delay = false;
 
-    const cycles2 = cpu.step();
+    cpu.step();
 
-    console.log('After step 2:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`A: 0x${cpu.getRegisters().a.toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`Cycles: ${cycles2}`);
+    // Log state after step 2 for debugging if needed
 
     // Now we should be in the interrupt handler
     expect(cpu.getPC()).toBe(0x0052); // Should be in interrupt handler, past LD A,n
     expect(cpu.getRegisters().a).toBe(0xaa); // A should have been loaded
     expect(mmu.readByte(0xff0f) & 0x04).toBe(0); // Timer interrupt flag should be cleared
 
-    console.log('Test passed: Interrupt triggered on subsequent instruction');
+    // Test passed: Interrupt triggered on subsequent instruction
   });
 });

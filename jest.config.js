@@ -14,6 +14,16 @@
 const getTestType = () => {
   const args = process.argv.join(' ');
 
+  // Check for local development patterns - exclude comprehensive and infrastructure tests
+  if (process.env.JEST_LOCAL_DEV === 'true' || (!process.env.CI && !args.includes('--ci'))) {
+    return 'local';
+  }
+
+  // Check for CI comprehensive patterns
+  if (process.env.CI === 'true' || args.includes('--ci')) {
+    return 'ci';
+  }
+
   // Check for unit-specific patterns
   if (
     args.includes('--testPathPatterns=cpu') ||
@@ -66,6 +76,48 @@ const baseConfig = {
   resetModules: true,
   restoreMocks: true,
   errorOnDeprecated: true,
+  reporters: ['default'],
+};
+
+// Local development optimizations - EXCLUDES expensive comprehensive and infrastructure tests
+const localConfig = {
+  ...baseConfig,
+  testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  testMatch: ['<rootDir>/tests/**/*.test.ts', '<rootDir>/tests/**/*.spec.ts'],
+  testPathIgnorePatterns: [
+    // OPTIMIZATION: Exclude expensive tests from local development
+    '<rootDir>/tests/emulator/integration/blargg-comprehensive.test.ts', // ~26s - CI only
+    '<rootDir>/tests/emulator/integration/BlarggTestRunner.integration.test.ts', // ~90s - remove entirely
+  ],
+  maxWorkers: '100%', // Max parallelization for fast feedback
+  testTimeout: 15000, // Fast timeout for local development
+  collectCoverage: false, // Skip coverage for speed
+};
+
+// CI comprehensive configuration - INCLUDES all tests for full validation
+const ciConfig = {
+  ...baseConfig,
+  testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  testMatch: ['<rootDir>/tests/**/*.test.ts', '<rootDir>/tests/**/*.spec.ts'],
+  testPathIgnorePatterns: [
+    // REMOVE: Infrastructure test - redundant with comprehensive test
+    '<rootDir>/tests/emulator/integration/BlarggTestRunner.integration.test.ts',
+  ],
+  maxWorkers: '75%', // Balanced for CI resources
+  testTimeout: 180000, // Extended for comprehensive Blargg test
+  collectCoverage: true,
+  coverageReporters: ['text', 'lcov', 'json', 'json-summary'],
+  coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      statements: 70,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+    },
+  },
 };
 
 // Unit test optimizations - INCLUDES ALL TESTS
@@ -141,8 +193,12 @@ const fullConfig = {
     },
   },
   testMatch: ['<rootDir>/tests/**/*.test.{ts,tsx}', '<rootDir>/tests/**/*.spec.{ts,tsx}'],
+  // Exclude comprehensive Blargg test from local development for speed
+  testPathIgnorePatterns: process.env.CI
+    ? []
+    : ['<rootDir>/tests/emulator/integration/blargg-comprehensive.test.ts'],
   maxWorkers: '75%', // Increased from 50% for better performance
-  testTimeout: 30000,
+  testTimeout: 180000, // 3 minutes for full suite including Blargg comprehensive ROM
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/tests/',
@@ -163,6 +219,8 @@ const fullConfig = {
 
 // Export appropriate configuration based on test type
 const configs = {
+  local: localConfig,
+  ci: ciConfig,
   unit: unitConfig,
   integration: integrationConfig,
   full: fullConfig,
@@ -171,12 +229,16 @@ const configs = {
 const selectedConfig = configs[testType];
 
 // Log configuration selection for debugging
-if (process.env.JEST_DEBUG_CONFIG === 'true') {
+if (process.env.JEST_DEBUG_CONFIG === 'true' || !process.env.CI) {
   console.log(`\n🔧 Jest Config: Using '${testType}' configuration`);
   console.log(`   Workers: ${selectedConfig.maxWorkers}`);
   console.log(`   Environment: ${selectedConfig.testEnvironment}`);
   console.log(`   Timeout: ${selectedConfig.testTimeout}ms`);
-  console.log(`   Coverage: ${selectedConfig.collectCoverage || false}\n`);
+  console.log(`   Coverage: ${selectedConfig.collectCoverage || false}`);
+  if (selectedConfig.testPathIgnorePatterns?.length) {
+    console.log(`   Excluded: ${selectedConfig.testPathIgnorePatterns.length} test files`);
+  }
+  console.log();
 }
 
 export default selectedConfig;

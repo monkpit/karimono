@@ -84,8 +84,10 @@ export class CPU implements CPUTestingComponent {
 
   // CPUComponent interface implementation
   step(): number {
-    // Log CPU state before instruction execution for Game Boy Doctor
-    this.gameBoyDoctor.logState(this.registers, this.mmu);
+    // Log CPU state before instruction execution for Game Boy Doctor (only when enabled)
+    if (this.gameBoyDoctor.isEnabled()) {
+      this.gameBoyDoctor.logState(this.registers, this.mmu);
+    }
 
     // If halted, CPU does not execute instructions but still needs to check interrupts
     if (this.halted) {

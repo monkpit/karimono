@@ -63,9 +63,5 @@ describe('Blargg Comprehensive CPU Instructions Test', () => {
     // Ensure no failures in comprehensive output
     expect(result.output).not.toContain('failed');
     expect(result.output).not.toContain('Failed');
-
-    console.log('Comprehensive CPU Instructions Test: ALL PASSED');
-    console.log(`Cycles executed: ${result.cyclesExecuted}`);
-    console.log(`Output: ${result.output}`);
   }, 180000); // 3-minute timeout for comprehensive test only
 });

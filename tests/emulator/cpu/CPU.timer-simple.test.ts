@@ -43,29 +43,15 @@ describe('CPU Simple Timer Test', () => {
 
     cpu.setProgramCounter(0x0100);
 
-    console.log('Before execution:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`TIMA: 0x${mmu.readByte(0xff05).toString(16)}`);
-    console.log(`TAC: 0x${mmu.readByte(0xff07).toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`IME: ${cpu.getIME()}`);
+    // Log state before execution for debugging if needed
 
     // Execute NOP - this should trigger timer overflow and interrupt
-    const cycles = cpu.step();
+    cpu.step();
 
-    console.log('After NOP execution:');
-    console.log(`PC: 0x${cpu.getPC().toString(16)}`);
-    console.log(`TIMA: 0x${mmu.readByte(0xff05).toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
-    console.log(`Cycles: ${cycles}`);
+    // Log state after execution for debugging if needed
 
     // Force timer to advance manually to see if it's working
     const timer = (mmu as any).timer;
-    console.log('Timer before manual step:', timer);
     timer.step(16); // 16 cycles should cause TIMA to increment
-
-    console.log('After manual timer step:');
-    console.log(`TIMA: 0x${mmu.readByte(0xff05).toString(16)}`);
-    console.log(`IF: 0x${mmu.readByte(0xff0f).toString(16)}`);
   });
 });

@@ -13,9 +13,7 @@
  * that have been verified against actual DMG hardware.
  */
 
-import {
-  BlarggTestRunner,
-} from '../../../src/emulator/testing/BlarggTestRunner';
+import { BlarggTestRunner } from '../../../src/emulator/testing/BlarggTestRunner';
 import { EmulatorContainer } from '../../../src/emulator/EmulatorContainer';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -250,38 +248,34 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
       // OPTIMIZED: Test only key ROMs instead of all 11 for performance
       // This gives us confidence while maintaining reasonable test time
       const keyRoms = [
-        '01-special.gb',      // Special instructions
-        '02-interrupts.gb',   // Interrupt handling  
-        '04-op r,imm.gb',     // Register operations
-        '06-ld r,r.gb',       // Load instructions
-        '10-bit ops.gb'       // Bit operations
+        '01-special.gb', // Special instructions
+        '02-interrupts.gb', // Interrupt handling
+        '04-op r,imm.gb', // Register operations
+        '06-ld r,r.gb', // Load instructions
+        '10-bit ops.gb', // Bit operations
       ];
 
       let allPassed = true;
-      const results: Array<{rom: string, passed: boolean}> = [];
+      const results: Array<{ rom: string; passed: boolean }> = [];
 
       for (const rom of keyRoms) {
         const romPath = path.join(INDIVIDUAL_TESTS_DIR, rom);
         const result = testRunner.executeTest(romPath);
-        results.push({rom, passed: result.passed});
+        results.push({ rom, passed: result.passed });
         if (!result.passed) {
           allPassed = false;
-          console.log(`Key ROM failed: ${rom}`);
         }
       }
 
       expect(allPassed).toBe(true);
       expect(results.length).toBe(5); // 5 key tests instead of 11
-      console.log('All key representative ROMs passed successfully');
     }, 30000); // 30 second timeout - much faster
   });
 
   // Comprehensive test moved to separate file: blargg-comprehensive.test.ts
   // This improves performance and prevents timeout issues
 
-  // DISABLED: Hardware Accuracy Validation - too expensive (runs all 11 ROMs)
-  // Use comprehensive test in separate file for full validation
-  describe.skip('Hardware Accuracy Validation', () => {
+  describe('Hardware Accuracy Validation', () => {
     test('should detect and report any CPU instruction inaccuracies', async () => {
       // FAILING TEST: This will help identify areas needing improvement
       const result = testRunner.executeTestSuite(INDIVIDUAL_TESTS_DIR);
@@ -300,16 +294,6 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
         }
       });
 
-      // For now, this test documents what we find
-      if (failedTests.length > 0) {
-        console.warn('CPU Instruction Inaccuracies Detected:', {
-          failedTests,
-          inaccuracyReports,
-          totalFailed: failedTests.length,
-          accuracy: `${(((11 - failedTests.length) / 11) * 100).toFixed(1)}%`,
-        });
-      }
-
       // FAILING ASSERTION: This should pass once our CPU implementation is complete
       expect(failedTests.length).toBe(0);
     }, 300000);
@@ -317,27 +301,6 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
     test('should provide detailed failure analysis for debugging', async () => {
       // FAILING TEST: Provides debugging information for failed tests
       const result = testRunner.executeTest(path.join(INDIVIDUAL_TESTS_DIR, '01-special.gb'));
-
-      if (!result.passed) {
-        // Extract specific failure information
-        const failureDetails = {
-          rom: '01-special.gb',
-          output: result.output,
-          cycles: result.cyclesExecuted,
-          reason: result.failureReason,
-        };
-
-        console.debug('Failure Analysis:', failureDetails);
-
-        // Look for specific instruction failure patterns
-        if (result.output.includes('CB')) {
-          console.debug('CB-prefixed instruction failure detected');
-        }
-
-        if (result.output.match(/[0-9A-Fa-f]{2}/)) {
-          console.debug('Opcode failure detected:', result.output.match(/[0-9A-Fa-f]{2}/));
-        }
-      }
 
       // This test helps with debugging but should eventually pass
       expect(result.passed).toBe(true);
