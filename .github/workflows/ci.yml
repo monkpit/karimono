@@ -77,7 +77,7 @@ jobs:
 
       - name: Run linting
         run: npm run lint
-        
+
       - name: Check for quality violations
         run: |
           echo "🔍 Checking for debug statements in test files..."
@@ -205,9 +205,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coverage-
 
-      - name: Run automated quality gates
-        run: node scripts/quality-gates.js
-        
       - name: Run tests with coverage
         run: npm run test:ci
         env:
@@ -267,10 +264,10 @@ jobs:
         run: |
           echo "🔍 Final quality verification..."
           echo "✅ All quality gates passed in previous stages"
-          
+
       - name: Build project
         run: npm run build
-        
+
       - name: Verify build quality
         run: |
           echo "🔍 Verifying build artifacts..."

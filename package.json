@@ -14,7 +14,8 @@
     "test": "jest --coverage=false --maxWorkers=100% --testTimeout=15000",
     "test:ci": "jest --ci --coverage --maxWorkers=75% --testTimeout=180000",
     "test:watch": "jest --watch --coverage=false",
-    "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test:ci && npm run build",
+    "generate-license-report": "license-report --output=table --only=prod > LICENSES.md",
     "prepare": "husky"
   },
   "devDependencies": {
