@@ -187,24 +187,6 @@ jobs:
         if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
-      - name: Cache Jest cache
-        uses: actions/cache@v4
-        with:
-          path: .jestcache
-          key: ${{ runner.os }}-jest-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts') }}
-          restore-keys: |
-            ${{ runner.os }}-jest-
-
-      - name: Cache coverage results
-        uses: actions/cache@v4
-        with:
-          path: |
-            coverage/
-            !coverage/lcov-report/
-          key: ${{ runner.os }}-coverage-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts', 'jest.config.js') }}
-          restore-keys: |
-            ${{ runner.os }}-coverage-
-
       - name: Run tests with coverage
         run: npm run test:ci
         env:
