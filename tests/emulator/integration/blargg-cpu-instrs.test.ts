@@ -122,7 +122,7 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
     });
   });
 
-  (process.env.CI ? describe.skip : describe)('Individual Instruction Family Tests', () => {
+  describe('Individual Instruction Family Tests', () => {
     // HISTORIC SUCCESS: 6/11 tests now PASSING! Remaining 5 timeout due to missing instruction implementations
 
     test('should pass 01-special.gb (Special Instructions)', async () => {
