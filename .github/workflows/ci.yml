@@ -141,14 +141,6 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
-
       - name: Install dependencies
         run: npm ci --no-audit
 
