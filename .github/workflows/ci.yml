@@ -15,42 +15,10 @@ on:
       - '.github/workflows/**'
 
 jobs:
-  # Shared setup job for dependency installation and caching
-  setup:
-    name: Setup Dependencies
-    runs-on: ubuntu-latest
-    outputs:
-      cache-hit: ${{ steps.cache-deps.outputs.cache-hit }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
-
-      - name: Install dependencies
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: npm ci --no-audit
-
   # Parallel validation jobs
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,18 +29,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
-        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
       - name: Run linting
@@ -91,7 +49,6 @@ jobs:
   format:
     name: Check Formatting
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -102,18 +59,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
-        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
       - name: Check code formatting
@@ -122,7 +69,6 @@ jobs:
   typecheck:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -133,27 +79,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
-        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
-
-      - name: Cache TypeScript build info
-        uses: actions/cache@v4
-        with:
-          path: |
-            .tsbuildinfo
-            tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsc-${{ hashFiles('src/**/*.ts', 'tests/**/*.ts', 'tsconfig.json') }}
 
       - name: Run TypeScript type checking
         run: npm run typecheck
@@ -161,7 +89,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -173,18 +100,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node24-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node24-modules-
 
       - name: Install dependencies
-        if: needs.setup.outputs.cache-hit != 'true'
         run: npm ci --no-audit
 
       - name: Run tests with coverage
@@ -223,7 +140,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
 
       - name: Cache node_modules
         uses: actions/cache@v4
@@ -235,12 +151,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit
-
-      - name: Cache build output
-        uses: actions/cache@v4
-        with:
-          path: dist
-          key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.ts', 'package.json', 'vite.config.ts') }}
 
       - name: Final quality verification before build
         run: |
