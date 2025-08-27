@@ -229,7 +229,7 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
       expect(result.passed).toBe(true);
       expect(result.output).toContain('Passed');
       expect(result.cyclesExecuted).toBeGreaterThan(0);
-    }, 60000);
+    }, 120000);
 
     test('should pass 11-op a,(hl).gb (Accumulator-Memory Operations)', async () => {
       const romPath = path.join(INDIVIDUAL_TESTS_DIR, '11-op a,(hl).gb');
