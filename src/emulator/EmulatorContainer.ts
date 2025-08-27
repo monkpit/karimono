@@ -7,7 +7,12 @@
  */
 
 import { EmulatorDisplay } from './display/EmulatorDisplay';
+import { PPURenderingPipeline } from './display/PPURenderingPipeline';
+import { DisplayControlPanel } from './display/DisplayControlPanel';
 import { MMU } from './mmu/MMU';
+import { SerialInterface } from './mmu/SerialInterface';
+import { Timer } from './mmu/Timer';
+import { CPU } from './cpu/CPU';
 import type {
   ComponentContainer,
   CPUComponent,
@@ -17,6 +22,8 @@ import type {
   DMAComponent,
   CartridgeComponent,
   DisplayComponent,
+  SerialInterfaceComponent,
+  TimerComponent,
   EmulatorContainerConfig,
   EmulatorState,
   RunnableComponent,
@@ -28,12 +35,16 @@ import type {
 export class EmulatorContainer implements RunnableComponent, ComponentContainer {
   // Component instances (private for encapsulation)
   private displayComponent!: EmulatorDisplay; // Definite assignment assertion - initialized in constructor
-  private cpuComponent: CPUComponent | undefined;
+  private renderingPipeline!: PPURenderingPipeline; // Definite assignment assertion - initialized in constructor
+  private displayControls!: DisplayControlPanel; // Definite assignment assertion - initialized in constructor
+  private cpuComponent!: CPUComponent; // Definite assignment assertion - initialized in constructor
   private ppuComponent: PPUComponent | undefined;
   private memoryComponent: MemoryComponent | undefined;
   private mmuComponent: MMUComponent | undefined;
   private dmaComponent: DMAComponent | undefined;
   private cartridgeComponent: CartridgeComponent | undefined;
+  private serialInterfaceComponent: SerialInterfaceComponent | undefined;
+  private timerComponent: TimerComponent | undefined;
 
   // Mutable state for performance (following performance POC findings)
   private state: EmulatorState;
@@ -70,14 +81,39 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     // 1. Initialize Display component first (no dependencies)
     this.displayComponent = new EmulatorDisplay(parentElement, this.config.display);
 
-    // 2. Initialize MMU component (no dependencies, needed by CPU)
+    // 2. Initialize PPU rendering pipeline with display component
+    this.renderingPipeline = new PPURenderingPipeline(this.displayComponent);
+
+    // 3. Initialize display control panel with display and pipeline
+    this.displayControls = new DisplayControlPanel(this.displayComponent, this.renderingPipeline);
+
+    // 4. Load display settings from localStorage
+    this.displayControls.loadSettings();
+
+    // 5. Initialize MMU component (needed for interrupt requests)
     this.mmuComponent = new MMU();
 
-    // 3. Set MMU to post-boot state (implements ADR-001)
+    // 6. Initialize Serial Interface component with interrupt callback
+    this.serialInterfaceComponent = new SerialInterface(this.config.debug, (interrupt: number) =>
+      this.mmuComponent?.requestInterrupt(interrupt)
+    );
+
+    // 7. Initialize Timer component with interrupt callback
+    this.timerComponent = new Timer((interrupt: number) =>
+      this.mmuComponent?.requestInterrupt(interrupt)
+    );
+
+    // 8. Wire Serial Interface and Timer to MMU for register delegation
+    this.mmuComponent.setSerialInterface(this.serialInterfaceComponent);
+    this.mmuComponent.setTimer(this.timerComponent);
+
+    // 9. Set MMU to post-boot state (implements ADR-001)
     this.mmuComponent.setPostBootState();
 
+    // 10. Initialize CPU component with MMU dependency
+    this.cpuComponent = new CPU(this.mmuComponent);
+
     // Other components remain undefined until implemented
-    this.cpuComponent = undefined;
     this.ppuComponent = undefined;
     this.memoryComponent = undefined;
     this.dmaComponent = undefined;
@@ -107,6 +143,9 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     }
 
     this.state.running = false;
+
+    // Auto-save display settings when stopping
+    this.saveDisplaySettings();
   }
 
   /**
@@ -125,11 +164,16 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     // Reset all components
     this.resetDisplayComponent();
     this.mmuComponent?.reset();
+    this.serialInterfaceComponent?.reset();
+    this.timerComponent?.reset();
     this.cpuComponent?.reset();
     this.ppuComponent?.reset();
     this.memoryComponent?.reset();
     this.dmaComponent?.reset();
     this.cartridgeComponent?.reset();
+
+    // Hide display controls after reset
+    this.displayControls.hide();
   }
 
   /**
@@ -155,9 +199,9 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   }
 
   /**
-   * Get CPU component instance (undefined until implemented)
+   * Get CPU component instance
    */
-  public getCPU(): CPUComponent | undefined {
+  public getCPU(): CPUComponent {
     return this.cpuComponent;
   }
 
@@ -200,6 +244,20 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
   }
 
   /**
+   * Get Serial Interface component instance
+   */
+  public getSerialInterface(): SerialInterfaceComponent | undefined {
+    return this.serialInterfaceComponent;
+  }
+
+  /**
+   * Get Timer component instance
+   */
+  public getTimer(): TimerComponent | undefined {
+    return this.timerComponent;
+  }
+
+  /**
    * Get current emulator state (read-only snapshot)
    */
   public getState(): Readonly<EmulatorState> {
@@ -223,13 +281,47 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
 
   /**
    * Execute single emulation step (for manual stepping/debugging)
+   * @returns Number of CPU cycles executed
    */
-  public step(): void {
+  public step(): number {
     if (!this.state.running) {
-      return;
+      return 0;
     }
 
-    this.state.cycleCount++;
+    // Execute CPU instruction and get cycles consumed
+    const cycles = this.cpuComponent.step();
+
+    // Update system cycle count
+    this.state.cycleCount += cycles;
+
+    // Update Serial Interface with cycles for timing-based operations
+    if (this.serialInterfaceComponent) {
+      // Pass CPU cycles to Serial Interface for hardware-accurate timing
+      this.serialInterfaceComponent.step(cycles);
+    }
+
+    // Update Timer with cycles for hardware-accurate timing
+    if (this.timerComponent) {
+      // Pass CPU cycles to Timer for DIV and TIMA updates
+      this.timerComponent.step(cycles);
+    }
+
+    // Update PPU and check for frame rendering
+    if (this.ppuComponent) {
+      // Step PPU with CPU cycles for timing synchronization
+      this.ppuComponent.step(cycles);
+
+      // Check if frame is ready for rendering
+      if (this.ppuComponent.isFrameReady()) {
+        const frameBuffer = this.ppuComponent.getFrameBuffer();
+        if (frameBuffer) {
+          // Convert raw PPU frame buffer to RGBA through rendering pipeline
+          this.renderingPipeline.renderFrame(frameBuffer);
+        }
+      }
+    }
+
+    return cycles;
   }
 
   /**
@@ -237,5 +329,99 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
    */
   public getConfig(): Readonly<EmulatorContainerConfig> {
     return Object.freeze({ ...this.config });
+  }
+
+  // ===============================
+  // PPU Rendering Pipeline Methods
+  // ===============================
+
+  /**
+   * Get PPU rendering pipeline component
+   */
+  public getRenderingPipeline(): PPURenderingPipeline {
+    return this.renderingPipeline;
+  }
+
+  /**
+   * Get display control panel component
+   */
+  public getDisplayControls(): DisplayControlPanel {
+    return this.displayControls;
+  }
+
+  /**
+   * Render frame buffer to display
+   */
+  public renderFrame(frameBuffer: Uint8Array): void {
+    this.renderingPipeline.renderFrame(frameBuffer);
+  }
+
+  /**
+   * Get rendering statistics
+   */
+  public getRenderingStats(): import('./display/PPURenderingPipeline').RenderingStats {
+    return this.renderingPipeline.getRenderingStats();
+  }
+
+  /**
+   * Save display settings to localStorage
+   */
+  public saveDisplaySettings(): void {
+    this.displayControls.saveSettings();
+  }
+
+  /**
+   * Reset display settings to defaults
+   */
+  public resetDisplaySettings(): void {
+    this.displayControls.resetSettings();
+  }
+
+  /**
+   * Set PPU component for integration
+   */
+  public setPPUComponent(ppu?: PPUComponent): void {
+    this.ppuComponent = ppu;
+  }
+
+  /**
+   * Set frame rate target for rendering coordination
+   */
+  private frameRateTarget = 59.7; // Default Game Boy frame rate
+
+  public setFrameRateTarget(fps: number): void {
+    this.frameRateTarget = fps;
+  }
+
+  /**
+   * Get frame rate target
+   */
+  public getFrameRateTarget(): number {
+    return this.frameRateTarget;
+  }
+
+  /**
+   * Get performance statistics
+   */
+  public getPerformanceStats(): {
+    frameRenderTime: number;
+    bufferReuses: number;
+    allocations: number;
+  } {
+    const pipelineStats = this.renderingPipeline.getPerformanceStats();
+    const renderingStats = this.renderingPipeline.getRenderingStats();
+
+    return {
+      frameRenderTime: renderingStats.averageFrameTime,
+      bufferReuses: pipelineStats.bufferReuses,
+      allocations: pipelineStats.allocations,
+    };
+  }
+
+  /**
+   * Get performance recommendations
+   */
+  public getPerformanceRecommendations(): import('./display/DisplayControlPanel').PerformanceRecommendation[] {
+    return this.displayControls.getPerformanceRecommendations();
   }
 }

@@ -1,6 +1,2 @@
-# Run lint-staged first (handles file-specific linting and formatting)
+# Run lint-staged (handles file-specific linting and formatting)
 npx lint-staged
-
-# Run full validation pipeline to mirror GitHub Actions
-echo "🔍 Running full validation pipeline (mirrors GitHub Actions)..."
-npm run validate

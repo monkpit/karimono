@@ -7,3 +7,8 @@ build/
 tests/resources/
 *.md
 package-lock.json
+
+# Generated CPU instruction files - copy/paste source material
+src/emulator/cpu/generated/**/*.ts
+!src/emulator/cpu/generated/index.ts
+!src/emulator/cpu/generated/CPUIntegrationGuide.ts

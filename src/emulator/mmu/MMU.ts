@@ -4,7 +4,13 @@
  * Following TDD principles - minimal implementation to pass failing tests.
  */
 
-import { MMUComponent, MMUSnapshot, CartridgeComponent } from '../types';
+import {
+  MMUComponent,
+  MMUSnapshot,
+  CartridgeComponent,
+  SerialInterfaceComponent,
+  TimerComponent,
+} from '../types';
 
 /**
  * MMU Component Implementation
@@ -19,11 +25,16 @@ export class MMU implements MMUComponent {
   private cartridgeLoadAttempted = false; // Track if loadCartridge() has been called
   private ioRegisters = new Map<number, number>(); // I/O register storage
   private postBootStateSet = false; // Track if setPostBootState has been called
+  private serialInterface: SerialInterfaceComponent | undefined; // Serial Interface component
+  private timer: TimerComponent | undefined; // Timer component
+  private cpu: { notifyIFWritten?: () => void } | undefined; // CPU component for IF register write notifications
 
-  // Banking state tracking (updated via MBC register writes)
-  private currentROMBank = 1; // Default ROM bank for switchable region
-  private currentRAMBank = 0; // Default RAM bank
-  private ramEnabled = false; // Default RAM state
+  // LCD state for LY register auto-increment
+  private lyCycleCounter = 0; // Cycle counter for LY timing
+  private ly = 0; // Current LY value (0-153)
+  private gameBoyDoctorMode = false; // Game Boy Doctor compatibility mode
+
+  // MBC banking state removed - now handled internally by cartridge component
 
   constructor() {
     this.reset();
@@ -45,10 +56,11 @@ export class MMU implements MMUComponent {
     this.bootROMLoaded = false;
     this.cartridgeLoadAttempted = false;
 
-    // Reset banking state
-    this.currentROMBank = 1;
-    this.currentRAMBank = 0;
-    this.ramEnabled = false;
+    // Banking state now managed by cartridge component
+
+    // Reset LCD timing state
+    this.lyCycleCounter = 0;
+    this.ly = 0;
 
     // Reset I/O registers based on post-boot state
     this.ioRegisters.clear();
@@ -60,6 +72,26 @@ export class MMU implements MMUComponent {
       this.ioRegisters.set(0xff50, 0x00); // Boot ROM control register
       this.ioRegisters.set(0xff01, 0x00); // Serial data register
       this.ioRegisters.set(0xff02, 0x00); // Serial control register
+      this.ioRegisters.set(0xff0f, 0x00); // IF register
+      this.writeByte(0xffff, 0x00); // IE register
+    }
+  }
+
+  /**
+   * Step the MMU forward by specified number of CPU cycles
+   * Updates LCD timing (LY register auto-increment)
+   */
+  step(cpuCycles: number): void {
+    // Update LCD timing - LY increments every ~456 CPU cycles (Game Boy line timing)
+    this.lyCycleCounter += cpuCycles;
+    if (this.lyCycleCounter >= 456) {
+      this.lyCycleCounter -= 456;
+      this.ly = (this.ly + 1) % 154; // LY cycles 0-153 (144 visible + 10 VBlank)
+    }
+
+    // Update timer with CPU cycles
+    if (this.timer) {
+      this.timer.step(cpuCycles);
     }
   }
 
@@ -95,6 +127,34 @@ export class MMU implements MMUComponent {
 
     // I/O Registers (0xFF00-0xFF7F)
     if (address >= 0xff00 && address <= 0xff7f) {
+      // Delegate serial registers to Serial Interface component
+      if (address === 0xff01 && this.serialInterface) {
+        return this.serialInterface.readSB();
+      }
+      if (address === 0xff02 && this.serialInterface) {
+        return this.serialInterface.readSC();
+      }
+
+      // Delegate timer registers to Timer component
+      if (address === 0xff04 && this.timer) {
+        return this.timer.readDIV();
+      }
+      if (address === 0xff05 && this.timer) {
+        return this.timer.readTIMA();
+      }
+      if (address === 0xff06 && this.timer) {
+        return this.timer.readTMA();
+      }
+      if (address === 0xff07 && this.timer) {
+        return this.timer.readTAC();
+      }
+
+      // Handle LY register (0xFF44) - LCD Y-coordinate register (hardware-controlled)
+      if (address === 0xff44) {
+        // Game Boy Doctor mode: always return 0x90, normal mode: return current LY
+        return this.gameBoyDoctorMode ? 0x90 : this.ly;
+      }
+
       return this.ioRegisters.get(address) ?? 0xff; // Undefined registers return 0xFF
     }
 
@@ -123,9 +183,6 @@ export class MMU implements MMUComponent {
       if (this.cartridge) {
         this.cartridge.writeMBCRegister(address, value);
 
-        // Track banking state changes (simplified MBC1 behavior)
-        this.updateBankingState(address, value);
-
         return; // ROM region is read-only except for MBC
       }
       // No cartridge loaded - fall through to memory for basic MMU functionality
@@ -142,6 +199,53 @@ export class MMU implements MMUComponent {
 
     // I/O Registers (0xFF00-0xFF7F)
     if (address >= 0xff00 && address <= 0xff7f) {
+      // Delegate serial registers to Serial Interface component
+      if (address === 0xff01 && this.serialInterface) {
+        this.serialInterface.writeSB(value);
+        return;
+      }
+      if (address === 0xff02 && this.serialInterface) {
+        this.serialInterface.writeSC(value);
+        return;
+      }
+
+      // Delegate timer registers to Timer component
+      if (address === 0xff04 && this.timer) {
+        this.timer.writeDIV(value);
+        return;
+      }
+      if (address === 0xff05 && this.timer) {
+        this.timer.writeTIMA(value);
+        return;
+      }
+      if (address === 0xff06 && this.timer) {
+        this.timer.writeTMA(value);
+        return;
+      }
+      if (address === 0xff07 && this.timer) {
+        this.timer.writeTAC(value);
+        return;
+      }
+
+      // Handle LY register (0xFF44) - writing resets to 0 (hardware-accurate behavior)
+      if (address === 0xff44) {
+        // Hardware behavior: writing to LY resets it to 0
+        this.ly = 0;
+        this.lyCycleCounter = 0; // Reset cycle counter as well
+        // Do NOT store in ioRegisters - LY is hardware-controlled
+        return;
+      }
+
+      // IF register (0xFF0F) - special handling for manual writes
+      if (address === 0xff0f) {
+        this.ioRegisters.set(address, value);
+        // Notify CPU that IF was written manually (triggers 1-cycle interrupt delay)
+        if (this.cpu?.notifyIFWritten) {
+          this.cpu.notifyIFWritten();
+        }
+        return;
+      }
+
       // Boot ROM disable register (0xFF50) - special handling
       if (address === 0xff50) {
         this.ioRegisters.set(address, value);
@@ -176,6 +280,13 @@ export class MMU implements MMUComponent {
     this.memory[address] = value;
   }
 
+  public requestInterrupt(interrupt: number): void {
+    const ifAddress = 0xff0f;
+    let ifRegister = this.readByte(ifAddress);
+    ifRegister |= 1 << interrupt;
+    this.writeByte(ifAddress, ifRegister);
+  }
+
   readWord(address: number): number {
     // Little-endian: low byte first, then high byte
     address = address & 0xffff;
@@ -203,12 +314,27 @@ export class MMU implements MMUComponent {
     this.cartridgeLoadAttempted = true;
   }
 
+  setSerialInterface(serialInterface: SerialInterfaceComponent): void {
+    this.serialInterface = serialInterface;
+  }
+
+  setTimer(timer: TimerComponent): void {
+    this.timer = timer;
+  }
+
+  setCPU(cpu: { notifyIFWritten?: () => void }): void {
+    this.cpu = cpu;
+  }
+
   getSnapshot(): MMUSnapshot {
+    // Get banking state from cartridge if available
+    const cartridgeState = this.cartridge?.getState();
     return {
       bootROMEnabled: this.bootROMEnabled,
-      currentROMBank: this.currentROMBank,
-      currentRAMBank: this.currentRAMBank,
-      ramEnabled: this.ramEnabled,
+      currentROMBank: cartridgeState?.banking.currentROMBank ?? 1,
+      currentRAMBank: cartridgeState?.banking.currentRAMBank ?? 0,
+      ramEnabled: cartridgeState?.banking.ramEnabled ?? false,
+      bankingMode: cartridgeState?.banking.bankingMode ?? 0,
     };
   }
 
@@ -222,23 +348,8 @@ export class MMU implements MMUComponent {
     // Boot ROM overlay is already enabled by default
   }
 
-  /**
-   * Update banking state based on MBC register writes
-   * Simplified MBC1-like behavior for testing
-   */
-  private updateBankingState(address: number, value: number): void {
-    // MBC1 register mapping
-    if (address >= 0x0000 && address <= 0x1fff) {
-      // RAM enable
-      this.ramEnabled = (value & 0x0f) === 0x0a;
-    } else if (address >= 0x2000 && address <= 0x3fff) {
-      // ROM bank select (lower 5 bits)
-      this.currentROMBank = Math.max(1, value & 0x1f);
-    } else if (address >= 0x4000 && address <= 0x5fff) {
-      // RAM bank select or upper ROM bank bits
-      this.currentRAMBank = value & 0x03;
-    }
-  }
+  // MBC banking logic removed - now encapsulated within cartridge component
+  // MMU delegates all banking operations to cartridge without knowing internals
 
   /**
    * Check if an I/O register address is defined (has actual hardware function)
@@ -247,9 +358,21 @@ export class MMU implements MMUComponent {
   private isDefinedIORegister(address: number): boolean {
     // Expand list of defined I/O registers for post-boot state support
     const definedRegisters = new Set([
+      // Joypad
+      0xff00, // Joypad register
+
+      // Interrupt Flag
+      0xff0f, // IF register
+
       // Serial port
       0xff01, // Serial port data
       0xff02, // Serial port control
+
+      // Timer and Divider
+      0xff04, // Divider register
+      0xff05, // Timer counter
+      0xff06, // Timer modulo
+      0xff07, // Timer control
 
       // PPU/LCD system
       0xff40, // LCDC - LCD Control
@@ -287,9 +410,20 @@ export class MMU implements MMUComponent {
 
       // Boot ROM control
       0xff50, // Boot ROM control
+
+      // Include the last I/O register address to support the full range
+      0xff7f, // Last I/O register
     ]);
 
     return definedRegisters.has(address);
+  }
+
+  /**
+   * Enable Game Boy Doctor compatibility mode
+   * Sets LY register to always return 0x90 as required by Game Boy Doctor
+   */
+  enableGameBoyDoctorMode(): void {
+    this.gameBoyDoctorMode = true;
   }
 
   /**
@@ -309,10 +443,7 @@ export class MMU implements MMUComponent {
     // Initialize I/O registers to exact DMG post-boot values
     this.initializePostBootIORegisters();
 
-    // Reset banking state
-    this.currentROMBank = 1;
-    this.currentRAMBank = 0;
-    this.ramEnabled = false;
+    // Banking state now managed by cartridge component
   }
 
   /**
@@ -327,7 +458,7 @@ export class MMU implements MMUComponent {
     this.ioRegisters.set(0xff41, 0x80); // STAT - LCD Status
     this.ioRegisters.set(0xff42, 0x00); // SCY - Scroll Y
     this.ioRegisters.set(0xff43, 0x00); // SCX - Scroll X
-    this.ioRegisters.set(0xff44, 0x00); // LY - LCD Y Coordinate
+    // LY (0xFF44) is hardware-controlled, not stored in ioRegisters
     this.ioRegisters.set(0xff45, 0x00); // LYC - LY Compare
     this.ioRegisters.set(0xff46, 0x00); // DMA Transfer
     this.ioRegisters.set(0xff47, 0xfc); // BGP - Background Palette
@@ -362,5 +493,9 @@ export class MMU implements MMUComponent {
 
     // Boot ROM control (shows disabled state)
     this.ioRegisters.set(0xff50, 0x01); // Boot ROM disabled
+
+    // Interrupt registers
+    this.ioRegisters.set(0xff0f, 0xe1); // IF register (top 3 bits are 1)
+    this.writeByte(0xffff, 0x00); // IE register
   }
 }

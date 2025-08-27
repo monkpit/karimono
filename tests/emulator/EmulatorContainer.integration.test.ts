@@ -59,11 +59,14 @@ describe('EmulatorContainer Integration', () => {
     expect(container.getCycleCount()).toBe(0);
   });
 
-  it('should provide access to future components', () => {
+  it('should provide access to implemented and future components', () => {
     container = new EmulatorContainer(parentElement);
 
+    // CPU should be implemented and accessible
+    expect(container.getCPU()).toBeTruthy();
+    expect(typeof container.getCPU().step).toBe('function');
+
     // Future components should be undefined until implemented
-    expect(container.getCPU()).toBeUndefined();
     expect(container.getPPU()).toBeUndefined();
     expect(container.getMemory()).toBeUndefined();
 

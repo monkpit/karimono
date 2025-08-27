@@ -44,8 +44,9 @@ export interface RunnableComponent extends EmulatorComponent {
 export interface CPUComponent extends RunnableComponent {
   /**
    * Execute a single CPU instruction
+   * @returns Number of cycles consumed by the instruction
    */
-  step(): void;
+  step(): number;
 
   /**
    * Get current program counter value
@@ -53,9 +54,129 @@ export interface CPUComponent extends RunnableComponent {
   getPC(): number;
 
   /**
-   * Get CPU register values
+   * Check if CPU is currently halted
+   */
+  isHalted(): boolean;
+
+  /**
+   * Trigger an interrupt (simplified for testing)
+   */
+  triggerInterrupt(address: number): void;
+  /**
+   * Get debug information about current CPU state
+   */
+  getDebugInfo(): string;
+
+  // Flag register access methods
+  /**
+   * Get zero flag state (bit 7 of F register)
+   */
+  getZeroFlag(): boolean;
+
+  /**
+   * Get subtract flag state (bit 6 of F register)
+   */
+  getSubtractFlag(): boolean;
+
+  /**
+   * Get half-carry flag state (bit 5 of F register)
+   */
+  getHalfCarryFlag(): boolean;
+
+  /**
+   * Get carry flag state (bit 4 of F register)
+   */
+  getCarryFlag(): boolean;
+}
+
+/**
+ * CPU testing interface - extends CPUComponent with testing-specific methods
+ * Used for test setup and verification without polluting production interface
+ */
+export interface CPUTestingComponent extends CPUComponent {
+  /**
+   * Get CPU register values (TEMPORARY - for refactor transition)
+   * TODO: Remove when all tests use proper boundary observation patterns
    */
   getRegisters(): CPURegisters;
+
+  /**
+   * Get A register value (for test setup convenience)
+   * @deprecated Prefer getRegisters().a for clarity. To be removed.
+   */
+  getRegisterA(): number;
+
+  // Register manipulation methods for testing
+  /**
+   * Set A register value (for test setup)
+   */
+  setRegisterA(value: number): void;
+
+  /**
+   * Set B register value (for test setup)
+   */
+  setRegisterB(value: number): void;
+
+  /**
+   * Set C register value (for test setup)
+   */
+  setRegisterC(value: number): void;
+
+  /**
+   * Set D register value (for test setup)
+   */
+  setRegisterD(value: number): void;
+
+  /**
+   * Set E register value (for test setup)
+   */
+  setRegisterE(value: number): void;
+
+  /**
+   * Set F register value (for test setup)
+   */
+  setRegisterF(value: number): void;
+
+  /**
+   * Set H register value (for test setup)
+   */
+  setRegisterH(value: number): void;
+
+  /**
+   * Set L register value (for test setup)
+   */
+  setRegisterL(value: number): void;
+
+  /**
+   * Set stack pointer value (for test setup)
+   */
+  setStackPointer(value: number): void;
+
+  /**
+   * Set program counter value (for test setup)
+   */
+  setProgramCounter(value: number): void;
+
+  // Flag manipulation methods for testing
+  /**
+   * Set zero flag state (for test setup)
+   */
+  setZeroFlag(state: boolean): void;
+
+  /**
+   * Set subtract flag state (for test setup)
+   */
+  setSubtractFlag(state: boolean): void;
+
+  /**
+   * Set half-carry flag state (for test setup)
+   */
+  setHalfCarryFlag(state: boolean): void;
+
+  /**
+   * Set carry flag state (for test setup)
+   */
+  setCarryFlag(state: boolean): void;
 }
 
 /**
@@ -72,12 +193,19 @@ export interface CPURegisters {
   l: number;
   sp: number;
   pc: number;
+  setHL?: (value: number) => void; // Testing helper method
 }
 
 /**
  * PPU (Picture Processing Unit) component interface
  */
 export interface PPUComponent extends RunnableComponent {
+  /**
+   * Update PPU state for the given number of CPU cycles
+   * @param cycles Number of CPU cycles to advance PPU timing
+   */
+  step(cycles: number): void;
+
   /**
    * Render current frame to display
    */
@@ -87,6 +215,16 @@ export interface PPUComponent extends RunnableComponent {
    * Get current PPU mode
    */
   getMode(): PPUModeType;
+
+  /**
+   * Check if a frame is ready for rendering
+   */
+  isFrameReady(): boolean;
+
+  /**
+   * Get the current frame buffer (raw PPU data - will be processed by rendering pipeline)
+   */
+  getFrameBuffer(): Uint8Array | null;
 }
 
 /**
@@ -143,6 +281,8 @@ export interface MMUSnapshot {
   currentRAMBank: number;
   /** External cartridge RAM is currently enabled */
   ramEnabled: boolean;
+  /** MBC1 banking mode: 0 = simple banking, 1 = advanced banking */
+  bankingMode: number;
 }
 
 /**
@@ -171,6 +311,29 @@ export interface MMUComponent extends MemoryComponent {
    * Sets boot ROM disabled and initializes I/O registers to exact hardware values
    */
   setPostBootState(): void;
+
+  /**
+   * Set Serial Interface component for register delegation
+   */
+  setSerialInterface(_serialInterface: SerialInterfaceComponent): void;
+
+  /**
+   * Set Timer component for register delegation
+   */
+  setTimer(_timer: TimerComponent): void;
+
+  /**
+   * Request an interrupt to be raised
+   * @param interrupt Interrupt bit (0-4: VBlank, LCDC, Timer, Serial, Joypad)
+   */
+  requestInterrupt(interrupt: number): void;
+
+  /**
+   * Advance MMU timing by specified CPU cycles
+   * Updates LCD timing (LY register) and other hardware state
+   * @param cycles Number of CPU cycles to advance
+   */
+  step(cycles: number): void;
 }
 
 /**
@@ -221,6 +384,20 @@ export interface CartridgeComponent extends EmulatorComponent {
    * Get cartridge header information
    */
   getHeader(): CartridgeHeader;
+
+  /**
+   * Get current cartridge state for debugging and MMU snapshot
+   */
+  getState(): {
+    rom: Uint8Array;
+    ram: Uint8Array;
+    banking: {
+      currentROMBank: number;
+      currentRAMBank: number;
+      ramEnabled: boolean;
+      bankingMode: number;
+    };
+  };
 }
 
 /**
@@ -309,6 +486,104 @@ export interface EmulatorState {
 }
 
 /**
+ * Serial Interface component for hardware-accurate Game Boy serial communication
+ */
+export interface SerialInterfaceComponent extends EmulatorComponent {
+  /**
+   * Read serial data register (SB - 0xFF01)
+   */
+  readSB(): number;
+
+  /**
+   * Write serial data register (SB - 0xFF01)
+   */
+  writeSB(value: number): void;
+
+  /**
+   * Read serial control register (SC - 0xFF02)
+   */
+  readSC(): number;
+
+  /**
+   * Write serial control register (SC - 0xFF02)
+   */
+  writeSC(value: number): void;
+
+  /**
+   * Check if serial transfer is currently active
+   */
+  isTransferActive(): boolean;
+
+  /**
+   * Process serial timing during CPU execution
+   * @param cpuCycles Number of CPU cycles to advance
+   */
+  step(cpuCycles: number): void;
+
+  /**
+   * Get captured serial output for test ROM validation
+   */
+  getOutputBuffer(): string;
+
+  /**
+   * Clear the serial output buffer
+   */
+  clearOutputBuffer(): void;
+}
+
+/**
+ * Timer component for hardware-accurate Game Boy timer system
+ * Implements DIV, TIMA, TMA, and TAC registers with cycle-accurate timing
+ */
+export interface TimerComponent extends EmulatorComponent {
+  /**
+   * Advance timer system by specified CPU cycles
+   * @param cycles Number of CPU cycles to advance
+   */
+  step(cycles: number): void;
+
+  /**
+   * Read DIV register (0xFF04) - Divider
+   */
+  readDIV(): number;
+
+  /**
+   * Write DIV register (0xFF04) - resets internal counter
+   */
+  writeDIV(value: number): void;
+
+  /**
+   * Read TIMA register (0xFF05) - Timer Counter
+   */
+  readTIMA(): number;
+
+  /**
+   * Write TIMA register (0xFF05) - Timer Counter
+   */
+  writeTIMA(value: number): void;
+
+  /**
+   * Read TMA register (0xFF06) - Timer Modulo
+   */
+  readTMA(): number;
+
+  /**
+   * Write TMA register (0xFF06) - Timer Modulo
+   */
+  writeTMA(value: number): void;
+
+  /**
+   * Read TAC register (0xFF07) - Timer Control
+   */
+  readTAC(): number;
+
+  /**
+   * Write TAC register (0xFF07) - Timer Control
+   */
+  writeTAC(value: number): void;
+}
+
+/**
  * Component dependency injection container
  * Manages creation order and inter-component references
  */
@@ -342,4 +617,14 @@ export interface ComponentContainer {
    * Get Cartridge component instance (undefined until implemented)
    */
   getCartridge(): CartridgeComponent | undefined;
+
+  /**
+   * Get Serial Interface component instance (undefined until implemented)
+   */
+  getSerialInterface(): SerialInterfaceComponent | undefined;
+
+  /**
+   * Get Timer component instance (undefined until implemented)
+   */
+  getTimer(): TimerComponent | undefined;
 }

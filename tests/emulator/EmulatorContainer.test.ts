@@ -134,10 +134,13 @@ describe('EmulatorContainer', () => {
       expect(display1).toBe(display2); // Should be same instance
     });
 
-    it('should prepare for future CPU component access', () => {
-      // This method should exist but return undefined until CPU is implemented
-      expect(container.getCPU).toBeDefined();
-      expect(container.getCPU()).toBeUndefined();
+    it('should initialize CPU component with MMU dependency', () => {
+      // CPU component should be initialized and accessible
+      const cpu = container.getCPU();
+      expect(cpu).toBeTruthy();
+      expect(typeof cpu.step).toBe('function');
+      expect(typeof cpu.getPC).toBe('function');
+      expect(typeof cpu.reset).toBe('function');
     });
 
     it('should prepare for future PPU component access', () => {
@@ -253,15 +256,95 @@ describe('EmulatorContainer', () => {
   describe('error handling', () => {
     it('should handle component initialization failures gracefully', () => {
       // Test error handling when canvas context cannot be obtained
-      const originalGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(null);
+      const originalCreateElement = document.createElement;
+
+      // Mock createElement to return a canvas that fails getContext
+      document.createElement = jest.fn((tagName: string) => {
+        if (tagName.toLowerCase() === 'canvas') {
+          const mockCanvas = {
+            width: 160,
+            height: 144,
+            style: {},
+            getContext: jest.fn().mockReturnValue(null),
+          };
+          return mockCanvas as any;
+        }
+        return originalCreateElement.call(document, tagName);
+      });
 
       expect(() => new EmulatorContainer(parentElement)).toThrow(
         'Failed to get 2D rendering context'
       );
 
-      // Restore original getContext
-      HTMLCanvasElement.prototype.getContext = originalGetContext;
+      // Restore original createElement
+      document.createElement = originalCreateElement;
+    });
+
+    it('should throw error when accessing uninitialized MMU', () => {
+      // Create container but don't initialize properly
+      const badContainer = Object.create(EmulatorContainer.prototype);
+      badContainer.mmuComponent = null;
+
+      expect(() => badContainer.getMMU()).toThrow('MMU component not initialized');
+    });
+
+    it('should handle step when emulator is not running', () => {
+      container = new EmulatorContainer(parentElement);
+      container.stop(); // Ensure not running
+
+      // Step should return without error when not running
+      expect(() => container.step()).not.toThrow();
+    });
+
+    it('should execute CPU instructions during step() calls', () => {
+      container = new EmulatorContainer(parentElement);
+      container.start();
+
+      const cpu = container.getCPU();
+      const mmu = container.getMMU();
+
+      // Set up a simple NOP instruction at PC location
+      mmu.writeByte(0x0100, 0x00); // NOP instruction
+
+      const initialPC = cpu.getPC();
+      const initialCycleCount = container.getCycleCount();
+
+      // Execute one step
+      container.step();
+
+      // CPU PC should have advanced after executing the instruction
+      expect(cpu.getPC()).toBe((initialPC + 1) & 0xffff);
+
+      // System cycle count should have increased by NOP instruction cycles (4)
+      expect(container.getCycleCount()).toBe(initialCycleCount + 4);
+    });
+
+    it('should correctly propagate CPU cycle counts to system state', () => {
+      container = new EmulatorContainer(parentElement);
+      container.start();
+
+      const mmu = container.getMMU();
+
+      // Set up two instructions: NOP (4 cycles), INC A (4 cycles)
+      mmu.writeByte(0x0100, 0x00); // NOP - 4 cycles
+      mmu.writeByte(0x0101, 0x3c); // INC A - 4 cycles
+
+      const initialCycles = container.getCycleCount();
+
+      // Execute two steps
+      container.step(); // Should execute NOP
+      container.step(); // Should execute INC A
+
+      // System should have accumulated 8 cycles total
+      expect(container.getCycleCount()).toBe(initialCycles + 8);
+    });
+
+    it('should return undefined for unimplemented components', () => {
+      container = new EmulatorContainer(parentElement);
+
+      // These components return undefined until implemented
+      expect(container.getDMA()).toBeUndefined();
+      expect(container.getCartridge()).toBeUndefined();
     });
   });
 });
