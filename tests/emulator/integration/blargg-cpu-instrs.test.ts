@@ -223,6 +223,9 @@ describe('Blargg CPU Instruction Hardware Validation', () => {
 
       const result = testRunner.executeTest(romPath, EXPECTED_OUTPUTS['10-bit ops.gb']);
 
+      if (!result.passed) {
+        throw new Error(`Test failed. ROM output: ${result.output}`);
+      }
       expect(result.passed).toBe(true);
       expect(result.output).toContain('Passed');
       expect(result.cyclesExecuted).toBeGreaterThan(0);
