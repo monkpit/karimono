@@ -225,6 +225,33 @@ export interface PPUComponent extends RunnableComponent {
    * Get the current frame buffer (raw PPU data - will be processed by rendering pipeline)
    */
   getFrameBuffer(): Uint8Array | null;
+
+  /**
+   * Read PPU register value
+   * @param address Register address (0xFF40-0xFF4B)
+   */
+  readRegister(address: number): number;
+
+  /**
+   * Write PPU register value
+   * @param address Register address (0xFF40-0xFF4B)
+   * @param value Value to write (0-255)
+   */
+  writeRegister(address: number, value: number): void;
+
+  /**
+   * Read from VRAM address range $8000-$9FFF
+   * @param address VRAM address ($8000-$9FFF)
+   * @returns byte value at address
+   */
+  readVRAM(address: number): number;
+
+  /**
+   * Write to VRAM address range $8000-$9FFF
+   * @param address VRAM address ($8000-$9FFF)
+   * @param value byte value to write
+   */
+  writeVRAM(address: number, value: number): void;
 }
 
 /**
@@ -321,6 +348,11 @@ export interface MMUComponent extends MemoryComponent {
    * Set Timer component for register delegation
    */
   setTimer(_timer: TimerComponent): void;
+
+  /**
+   * Set PPU component for register delegation
+   */
+  setPPU(_ppu: PPUComponent): void;
 
   /**
    * Request an interrupt to be raised
@@ -628,3 +660,10 @@ export interface ComponentContainer {
    */
   getTimer(): TimerComponent | undefined;
 }
+
+/**
+ * Callback function for triggering CPU interrupts.
+ * This pattern is used by components like PPU and Timer to signal the CPU.
+ * @param interruptBit The interrupt bit to set in the IF register (0-4).
+ */
+export type InterruptCallback = (interruptBit: number) => void;

@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         main: './index.html',
         demo: './demo.html',
+        'ppu-demo': './ppu-demo.html',
       },
       output: {
         manualChunks: {

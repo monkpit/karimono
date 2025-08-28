@@ -11,8 +11,14 @@
  * - Blargg Test ROMs: /tests/resources/blargg/mem_timing.gb
  */
 
-import { MMUComponent, CartridgeComponent, CartridgeHeader } from '../../../src/emulator/types';
+import {
+  MMUComponent,
+  CartridgeComponent,
+  CartridgeHeader,
+  PPUComponent,
+} from '../../../src/emulator/types';
 import { MMU } from '../../../src/emulator/mmu';
+import { PPU } from '../../../src/emulator/core/graphics/PPU';
 
 describe('MMU Component', () => {
   let mmu: MMUComponent;
@@ -1147,6 +1153,72 @@ describe('MMU Cartridge Branch Coverage', () => {
       // Test: Writing 0x20 (bit 5 set) should mask to bank 0 but alias to bank 1
       mmu.writeByte(0x2000, 0x20);
       expect(mmu.getSnapshot().currentROMBank).toBe(1);
+    });
+  });
+
+  describe('PPU Integration', () => {
+    let ppu: PPUComponent;
+
+    beforeEach(() => {
+      ppu = new PPU();
+      mmu.setPPU(ppu);
+    });
+
+    /**
+     * @see {@link https://gbdev.io/pandocs/Memory_Map.html#8000-9fff-video-ram-vram}
+     * VRAM range $8000-$9FFF should delegate to PPU component
+     */
+    it('should delegate VRAM reads to PPU component', () => {
+      // PPU should start with uninitialized VRAM (returns 0x00)
+      expect(mmu.readByte(0x8000)).toBe(0x00);
+      expect(mmu.readByte(0x9fff)).toBe(0x00);
+
+      // Write directly to PPU VRAM
+      ppu.writeVRAM(0x8000, 0x42);
+      ppu.writeVRAM(0x9fff, 0x84);
+
+      // MMU should delegate reads to PPU
+      expect(mmu.readByte(0x8000)).toBe(0x42);
+      expect(mmu.readByte(0x9fff)).toBe(0x84);
+    });
+
+    it('should delegate VRAM writes to PPU component', () => {
+      // Write through MMU
+      mmu.writeByte(0x8000, 0x12);
+      mmu.writeByte(0x9c00, 0x34); // Tile map area
+
+      // PPU should receive the writes
+      expect(ppu.readVRAM(0x8000)).toBe(0x12);
+      expect(ppu.readVRAM(0x9c00)).toBe(0x34);
+
+      // MMU reads should reflect PPU state
+      expect(mmu.readByte(0x8000)).toBe(0x12);
+      expect(mmu.readByte(0x9c00)).toBe(0x34);
+    });
+
+    it('should handle VRAM access without PPU component gracefully', () => {
+      // Create MMU without PPU
+      const mmuWithoutPPU = new MMU();
+
+      // Should not crash and return default values
+      expect(mmuWithoutPPU.readByte(0x8000)).toBe(0x00);
+      expect(mmuWithoutPPU.readByte(0x9fff)).toBe(0x00);
+
+      // Writes should not crash
+      expect(() => mmuWithoutPPU.writeByte(0x8000, 0x42)).not.toThrow();
+    });
+
+    it('should maintain VRAM delegation during post-boot state', () => {
+      // Set up some VRAM data
+      mmu.writeByte(0x8000, 0x99);
+      expect(mmu.readByte(0x8000)).toBe(0x99);
+
+      // Post-boot state should clear VRAM through PPU
+      mmu.setPostBootState();
+
+      // VRAM should be cleared via PPU delegation
+      expect(mmu.readByte(0x8000)).toBe(0x00);
+      expect(ppu.readVRAM(0x8000)).toBe(0x00);
     });
   });
 });

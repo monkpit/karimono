@@ -6,7 +6,17 @@ class MockHTMLElement {
   children: any[] = [];
   parentElement: any = null;
   textContent = '';
-  innerHTML = '';
+  private _innerHTML = '';
+
+  get innerHTML(): string {
+    return this._innerHTML;
+  }
+
+  set innerHTML(value: string) {
+    this._innerHTML = value;
+    // Simple parsing: just store the content, don't parse into children
+    // In real tests, we'll query by selector, not by children structure
+  }
   style: any = {};
   classList: any;
   value = '';
@@ -133,6 +143,22 @@ class MockHTMLElement {
     if (this._listeners.click) {
       this._listeners.click.forEach(listener => listener({ type: 'click', target: this }));
     }
+  };
+
+  contains = (node: any): boolean => {
+    // Simple implementation: check if node is this element or a child
+    if (node === this) {
+      return true;
+    }
+
+    // Check children recursively
+    for (const child of this.children) {
+      if (child === node || child.contains?.(node)) {
+        return true;
+      }
+    }
+
+    return false;
   };
 }
 

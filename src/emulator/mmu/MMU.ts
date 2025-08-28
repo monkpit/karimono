@@ -10,6 +10,7 @@ import {
   CartridgeComponent,
   SerialInterfaceComponent,
   TimerComponent,
+  PPUComponent,
 } from '../types';
 
 /**
@@ -27,6 +28,7 @@ export class MMU implements MMUComponent {
   private postBootStateSet = false; // Track if setPostBootState has been called
   private serialInterface: SerialInterfaceComponent | undefined; // Serial Interface component
   private timer: TimerComponent | undefined; // Timer component
+  private ppu: PPUComponent | undefined; // PPU component
   private cpu: { notifyIFWritten?: () => void } | undefined; // CPU component for IF register write notifications
 
   // LCD state for LY register auto-increment
@@ -93,6 +95,11 @@ export class MMU implements MMUComponent {
     if (this.timer) {
       this.timer.step(cpuCycles);
     }
+
+    // Update PPU with CPU cycles
+    if (this.ppu) {
+      this.ppu.step(cpuCycles);
+    }
   }
 
   readByte(address: number): number {
@@ -115,6 +122,14 @@ export class MMU implements MMUComponent {
         return 0xff;
       }
       // No cartridge loading attempted - fall through to memory for basic MMU tests
+    }
+
+    // VRAM (0x8000-0x9FFF) - delegate to PPU
+    if (address >= 0x8000 && address <= 0x9fff) {
+      if (this.ppu) {
+        return this.ppu.readVRAM(address);
+      }
+      return 0x00; // Uninitialized VRAM
     }
 
     // External RAM (0xA000-0xBFFF) - delegate to cartridge
@@ -155,6 +170,11 @@ export class MMU implements MMUComponent {
         return this.gameBoyDoctorMode ? 0x90 : this.ly;
       }
 
+      // Delegate core PPU registers (0xFF40-0xFF45) to PPU component
+      if (address >= 0xff40 && address <= 0xff45 && this.ppu) {
+        return this.ppu.readRegister(address);
+      }
+
       return this.ioRegisters.get(address) ?? 0xff; // Undefined registers return 0xFF
     }
 
@@ -187,6 +207,14 @@ export class MMU implements MMUComponent {
       }
       // No cartridge loaded - fall through to memory for basic MMU functionality
       // This allows word boundary tests to work before cartridge loading
+    }
+
+    // VRAM (0x8000-0x9FFF) - delegate to PPU
+    if (address >= 0x8000 && address <= 0x9fff) {
+      if (this.ppu) {
+        this.ppu.writeVRAM(address, value);
+      }
+      return;
     }
 
     // External RAM (0xA000-0xBFFF) - delegate to cartridge
@@ -233,6 +261,12 @@ export class MMU implements MMUComponent {
         this.ly = 0;
         this.lyCycleCounter = 0; // Reset cycle counter as well
         // Do NOT store in ioRegisters - LY is hardware-controlled
+        return;
+      }
+
+      // Delegate core PPU registers (0xFF40-0xFF45) to PPU component
+      if (address >= 0xff40 && address <= 0xff45 && this.ppu) {
+        this.ppu.writeRegister(address, value);
         return;
       }
 
@@ -320,6 +354,10 @@ export class MMU implements MMUComponent {
 
   setTimer(timer: TimerComponent): void {
     this.timer = timer;
+  }
+
+  setPPU(ppu: PPUComponent): void {
+    this.ppu = ppu;
   }
 
   setCPU(cpu: { notifyIFWritten?: () => void }): void {
@@ -439,6 +477,11 @@ export class MMU implements MMUComponent {
 
     // Clear memory to deterministic state
     this.memory.fill(0x00);
+
+    // Clear PPU VRAM to deterministic state
+    if (this.ppu) {
+      this.ppu.reset();
+    }
 
     // Initialize I/O registers to exact DMG post-boot values
     this.initializePostBootIORegisters();

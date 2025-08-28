@@ -143,10 +143,11 @@ describe('EmulatorContainer', () => {
       expect(typeof cpu.reset).toBe('function');
     });
 
-    it('should prepare for future PPU component access', () => {
-      // This method should exist but return undefined until PPU is implemented
+    it('should provide access to initialized PPU component', () => {
+      // PPU component should now be initialized during construction
       expect(container.getPPU).toBeDefined();
-      expect(container.getPPU()).toBeUndefined();
+      expect(container.getPPU()).toBeDefined();
+      expect(container.getPPU()).not.toBeNull();
     });
 
     it('should prepare for future Memory component access', () => {
