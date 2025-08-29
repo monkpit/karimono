@@ -66,8 +66,10 @@ describe('EmulatorContainer Integration', () => {
     expect(container.getCPU()).toBeTruthy();
     expect(typeof container.getCPU().step).toBe('function');
 
+    // PPU should now be implemented and accessible
+    expect(container.getPPU()).toBeTruthy();
+
     // Future components should be undefined until implemented
-    expect(container.getPPU()).toBeUndefined();
     expect(container.getMemory()).toBeUndefined();
 
     // But methods should exist

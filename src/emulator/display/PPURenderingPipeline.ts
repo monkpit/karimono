@@ -117,6 +117,12 @@ export class PPURenderingPipeline {
       this.bufferReuses++;
     }
 
+    // Sample some pixels for debugging
+    const samplePixels = [];
+    for (let i = 0; i < Math.min(10, ppuFrameBuffer.length); i++) {
+      samplePixels.push(ppuFrameBuffer[i]);
+    }
+
     // Convert each Game Boy pixel to RGBA
     for (let i = 0; i < ppuFrameBuffer.length; i++) {
       const gbColor = ppuFrameBuffer[i];

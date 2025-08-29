@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Karimono-v2 PPU Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #2d3748;
+        color: #e2e8f0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #4fd1c7;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #a0aec0;
+      }
+
+      .demo-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .demo-controls button {
+        padding: 10px 20px;
+        background-color: #4fd1c7;
+        color: #1a202c;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+
+      .demo-controls button:hover {
+        background-color: #38b2ac;
+        transform: translateY(-1px);
+      }
+
+      .demo-controls button:disabled {
+        background-color: #4a5568;
+        color: #718096;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .emulator-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+      }
+
+      .info-panel {
+        background-color: #374151;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .info-panel h3 {
+        color: #4fd1c7;
+        margin-top: 0;
+        margin-bottom: 15px;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .stat-item {
+        background-color: #4a5568;
+        padding: 15px;
+        border-radius: 5px;
+      }
+
+      .stat-label {
+        color: #a0aec0;
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+
+      .stat-value {
+        color: #e2e8f0;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      .log-container {
+        background-color: #1a202c;
+        border-radius: 5px;
+        padding: 15px;
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+
+      .log-entry {
+        margin-bottom: 5px;
+        color: #cbd5e0;
+      }
+
+      .log-entry.info {
+        color: #4fd1c7;
+      }
+
+      .log-entry.warning {
+        color: #fbd38d;
+      }
+
+      .log-entry.error {
+        color: #fc8181;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Game Boy PPU Demo</h1>
+        <p>Testing PPU background rendering with VRAM test patterns</p>
+      </div>
+
+      <div class="demo-controls">
+        <button id="start-btn">Start Emulation</button>
+        <button id="stop-btn" disabled>Stop Emulation</button>
+        <button id="reset-btn">Reset</button>
+        <input type="file" id="rom-input" accept=".gb,.gbc" style="display: none;">
+        <button id="load-rom-btn">Load ROM</button>
+        <button id="pattern1-btn">Solid Colors</button>
+        <button id="pattern2-btn">Checkerboard</button>
+        <button id="pattern3-btn">Gradient</button>
+        <button id="pattern4-btn">Test Tiles</button>
+        <button id="clear-log-btn">Clear Log</button>
+      </div>
+
+      <div class="emulator-container">
+        <div id="emulator-display" style="border: 2px solid #4fd1c7; min-height: 432px; min-width: 480px; background-color: #1a202c;"></div>
+        <div id="debug-info" style="margin-top: 10px; padding: 10px; background-color: #374151; border-radius: 5px; font-family: monospace; font-size: 12px;">
+          <div id="canvas-status">Canvas Status: Not created</div>
+          <div id="ppu-status">PPU Status: Not initialized</div>
+          <div id="emulation-status">Emulation Status: Not started</div>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <h3>Emulator Statistics</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">Frame Count</div>
+            <div class="stat-value" id="frame-count">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Cycle Count</div>
+            <div class="stat-value" id="cycle-count">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">FPS</div>
+            <div class="stat-value" id="fps">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Running</div>
+            <div class="stat-value" id="running-status">No</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Display Resolution</div>
+            <div class="stat-value" id="display-resolution">160×144 (3×→480×432)</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">CPU Mode</div>
+            <div class="stat-value" id="cpu-mode">Demo Mode</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">ROM Status</div>
+            <div class="stat-value" id="rom-status">No ROM Loaded</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <h3>Test Log</h3>
+        <div id="log-container" class="log-container"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/demo/ppu-demo.ts"></script>
+  </body>
+</html>

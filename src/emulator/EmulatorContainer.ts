@@ -12,7 +12,9 @@ import { DisplayControlPanel } from './display/DisplayControlPanel';
 import { MMU } from './mmu/MMU';
 import { SerialInterface } from './mmu/SerialInterface';
 import { Timer } from './mmu/Timer';
+import { PPU } from './core/graphics/PPU';
 import { CPU } from './cpu/CPU';
+import { Cartridge } from './cartridge/Cartridge';
 import type {
   ComponentContainer,
   CPUComponent,
@@ -21,6 +23,7 @@ import type {
   MMUComponent,
   DMAComponent,
   CartridgeComponent,
+  CartridgeHeader,
   DisplayComponent,
   SerialInterfaceComponent,
   TimerComponent,
@@ -103,18 +106,24 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
       this.mmuComponent?.requestInterrupt(interrupt)
     );
 
-    // 8. Wire Serial Interface and Timer to MMU for register delegation
+    // 8. Initialize PPU component with interrupt callback
+    // PPU needs to request VBlank interrupts from the MMU
+    this.ppuComponent = new PPU((interrupt: number) =>
+      this.mmuComponent?.requestInterrupt(interrupt)
+    );
+
+    // 9. Wire Serial Interface, Timer, and PPU to MMU for register delegation
     this.mmuComponent.setSerialInterface(this.serialInterfaceComponent);
     this.mmuComponent.setTimer(this.timerComponent);
+    this.mmuComponent.setPPU(this.ppuComponent);
 
-    // 9. Set MMU to post-boot state (implements ADR-001)
+    // 10. Set MMU to post-boot state (implements ADR-001)
     this.mmuComponent.setPostBootState();
 
-    // 10. Initialize CPU component with MMU dependency
+    // 11. Initialize CPU component with MMU dependency
     this.cpuComponent = new CPU(this.mmuComponent);
 
     // Other components remain undefined until implemented
-    this.ppuComponent = undefined;
     this.memoryComponent = undefined;
     this.dmaComponent = undefined;
     this.cartridgeComponent = undefined;
@@ -131,6 +140,11 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
 
     this.state.running = true;
     this.state.lastFrameTime = performance.now();
+
+    // Start PPU if available
+    if (this.ppuComponent) {
+      this.ppuComponent.start();
+    }
   }
 
   /**
@@ -143,6 +157,11 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
     }
 
     this.state.running = false;
+
+    // Stop PPU if available
+    if (this.ppuComponent) {
+      this.ppuComponent.stop();
+    }
 
     // Auto-save display settings when stopping
     this.saveDisplaySettings();
@@ -317,6 +336,10 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
         if (frameBuffer) {
           // Convert raw PPU frame buffer to RGBA through rendering pipeline
           this.renderingPipeline.renderFrame(frameBuffer);
+
+          // Mark frame as rendered by calling render() which clears the ready flag
+          this.ppuComponent.render();
+          this.state.frameCount++;
         }
       }
     }
@@ -423,5 +446,56 @@ export class EmulatorContainer implements RunnableComponent, ComponentContainer 
    */
   public getPerformanceRecommendations(): import('./display/DisplayControlPanel').PerformanceRecommendation[] {
     return this.displayControls.getPerformanceRecommendations();
+  }
+
+  /**
+   * Load ROM data into the emulator
+   * Creates a new cartridge and integrates it with the MMU
+   */
+  // eslint-disable-next-line no-unused-vars
+  public loadROM(romData: Uint8Array, _filename?: string): void {
+    // Stop emulation during ROM loading
+    const wasRunning = this.state.running;
+    this.stop();
+
+    // Create new cartridge from ROM data
+    this.cartridgeComponent = new Cartridge(romData);
+
+    // Set cartridge in MMU
+    if (this.mmuComponent) {
+      this.mmuComponent.loadCartridge(this.cartridgeComponent);
+    }
+
+    // Reset CPU to initial state for new ROM
+    this.cpuComponent?.reset();
+
+    // Resume emulation if it was running before
+    if (wasRunning) {
+      this.start();
+    }
+  }
+
+  /**
+   * Check if a ROM is currently loaded
+   */
+  public isROMLoaded(): boolean {
+    return this.cartridgeComponent !== undefined;
+  }
+
+  /**
+   * Get loaded ROM information
+   */
+  public getROMInfo(): { filename?: string; size: number; header: CartridgeHeader } | null {
+    if (!this.cartridgeComponent) {
+      return null;
+    }
+
+    const header = this.cartridgeComponent.getHeader();
+    const state = this.cartridgeComponent.getState();
+
+    return {
+      size: state.rom.length,
+      header,
+    };
   }
 }
