@@ -16,6 +16,7 @@ let emulatorContainer: EmulatorContainer | null = null;
 let animationId: number | null = null;
 let lastFrameTime = 0;
 let frameCount = 0;
+let lastStatsTime = 0;
 
 // DOM elements
 const startBtn = document.getElementById('start-btn') as HTMLButtonElement;
@@ -147,6 +148,7 @@ function startEmulation(): void {
   stopBtn.disabled = false;
 
   lastFrameTime = performance.now();
+  lastStatsTime = performance.now();
   frameCount = 0;
 
   // Start animation loop
@@ -186,6 +188,7 @@ function resetEmulation(): void {
   emulatorContainer.reset();
 
   frameCount = 0;
+  lastStatsTime = performance.now();
   updateStats();
 }
 
@@ -256,10 +259,18 @@ function updateStats(): void {
   cycleCountEl.textContent = state.cycleCount.toString();
   runningStatusEl.textContent = state.running ? 'Yes' : 'No';
 
-  // Calculate FPS
+  // Calculate FPS based on frames rendered since last stats update
   const currentTime = performance.now();
-  const fps = frameCount > 0 ? (1000 / (currentTime - lastFrameTime || 1)).toFixed(1) : '0';
+  const timeSinceLastStats = currentTime - lastStatsTime;
+  const framesRenderedSinceLastStats = 10; // We update stats every 10 frames
+  const fps =
+    timeSinceLastStats > 0
+      ? ((framesRenderedSinceLastStats * 1000) / timeSinceLastStats).toFixed(1)
+      : '0';
   fpsEl.textContent = fps;
+
+  // Update stats timestamp for next calculation
+  lastStatsTime = currentTime;
 
   // Update CPU mode based on ROM status
   const isROMLoaded = emulatorContainer.isROMLoaded();
